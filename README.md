@@ -22,16 +22,6 @@ ts = MockTs()
 dp_model = DeepAR(ts, epochs=50)
 dp_model.instantiate_and_fit()
 ```
-Util function for prediction (to be integrated into codebase):
-```python
-def get_sample_prediction(sample, fn, n_steps=10):
-    sample = np.array(sample).reshape(1, n_steps, 1)
-    output = fn([sample])
-    samples = []
-    for mu, sigma in zip(output[0].reshape(n_steps), output[1].reshape(n_steps)):
-        samples.append(normal(loc=mu, scale=np.sqrt(sigma), size=1)[0])
-    return np.array(samples)
-```
 
 Plot results with uncertainty bands:
 ```python
@@ -46,23 +36,35 @@ batch = ts.next_batch(1, ts.n_steps)
 
 ress = []
 for i in tqdm.tqdm(range(300)):
-    ress.append(get_sample_prediction(batch[0], dp_model.predict_theta_from_input, n_steps=ts.n_steps))
+    ress.append(np.expand_dims(
+        dp_model.get_sample_prediction(
+            batch[0]
+        ), axis=0,
+    ))
 
-res_df = pd.DataFrame(ress).T
-tot_res = res_df
+res_np = np.concatenate(ress, axis=0)
 
-plt.plot(batch[1].reshape(ts.n_steps), linewidth=6)
-tot_res['mu'] = tot_res.apply(lambda x: np.mean(x), axis=1)
-tot_res['upper'] = tot_res.apply(lambda x: np.mean(x) + np.std(x), axis=1)
-tot_res['lower'] = tot_res.apply(lambda x: np.mean(x) - np.std(x), axis=1)
-tot_res['two_upper'] = tot_res.apply(lambda x: np.mean(x) + 2*np.std(x), axis=1)
-tot_res['two_lower'] = tot_res.apply(lambda x: np.mean(x) - 2*np.std(x), axis=1)
+fig = plt.figure(figsize=(12, 6))
+gs = fig.add_gridspec(ts.dimensions, hspace=0)
+axs = gs.subplots(sharex=True)
 
-plt.plot(tot_res.mu, 'bo')
-plt.plot(tot_res.mu, linewidth=2)
-plt.fill_between(x = tot_res.index, y1=tot_res.lower, y2=tot_res.upper, alpha=0.5)
-plt.fill_between(x = tot_res.index, y1=tot_res.two_lower, y2=tot_res.two_upper, alpha=0.5)
-plt.title('Prediction uncertainty')
+for dim, ax in zip(range(ts.dimensions), axs):
+    res_df = pd.DataFrame(res_np[:, :, 0]).T
+    tot_res = res_df
+
+    ax.plot(batch[1].reshape((ts.n_steps, ts.dimensions))[:, dim], linewidth=6)
+    tot_res['mu'] = tot_res.apply(lambda x: np.mean(x), axis=1)
+    tot_res['upper'] = tot_res.apply(lambda x: np.mean(x) + np.std(x), axis=1)
+    tot_res['lower'] = tot_res.apply(lambda x: np.mean(x) - np.std(x), axis=1)
+    tot_res['two_upper'] = tot_res.apply(lambda x: np.mean(x) + 2*np.std(x), axis=1)
+    tot_res['two_lower'] = tot_res.apply(lambda x: np.mean(x) - 2*np.std(x), axis=1)
+
+    ax.plot(tot_res.mu, 'bo')
+    ax.plot(tot_res.mu, linewidth=2)
+    ax.fill_between(x = tot_res.index, y1=tot_res.lower, y2=tot_res.upper, alpha=0.5)
+    ax.fill_between(x = tot_res.index, y1=tot_res.two_lower, y2=tot_res.two_upper, alpha=0.5)
+    fig.suptitle('Prediction uncertainty')
+
 ```
 
 ![Image of gaussian](imgs/prediction.png)
