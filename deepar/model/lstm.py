@@ -35,22 +35,26 @@ class DeepAR(NNModel):
         if with_custom_nn_structure:
             self.nn_structure = with_custom_nn_structure
         else:
-            self.nn_structure = partial(DeepAR.basic_structure, n_steps=self.ts_obj.n_steps)
+            self.nn_structure = partial(
+                DeepAR.basic_structure,
+                n_steps=self.ts_obj.n_steps,
+                dimensions=self.ts_obj.dimensions
+            )
         self._output_layer_name = "main_output"
         self.get_intermediate = None
 
     @staticmethod
-    def basic_structure(n_steps=20):
+    def basic_structure(n_steps=20, dimensions=1):
         """
         This is the method that needs to be patched when changing NN structure
         :return: inputs_shape (tuple), inputs (Tensor), [loc, scale] (a list of theta parameters
         of the target likelihood)
         """
-        input_shape = (n_steps, 1)
+        input_shape = (n_steps, dimensions)
         inputs = Input(shape=input_shape)
         x = LSTM(4, return_sequences=True)(inputs)
         x = Dense(3, activation="relu")(x)
-        loc, scale = GaussianLayer(1, name="main_output")(x)
+        loc, scale = GaussianLayer(dimensions, name="main_output")(x)
         return input_shape, inputs, [loc, scale]
 
     def fit(self, verbose=False):
