@@ -1,6 +1,7 @@
 from functools import partial
 import logging
 import numpy as np
+from numpy.random import normal
 
 from tensorflow.keras.layers import Input, Dense, Input, LSTM
 from tensorflow.keras.models import Model
@@ -38,7 +39,7 @@ class DeepAR(NNModel):
             self.nn_structure = partial(
                 DeepAR.basic_structure,
                 n_steps=self.ts_obj.n_steps,
-                dimensions=self.ts_obj.dimensions
+                dimensions=self.ts_obj.dimensions,
             )
         self._output_layer_name = "main_output"
         self.get_intermediate = None
@@ -93,6 +94,20 @@ class DeepAR(NNModel):
             raise ValueError("TF model must be trained first!")
 
         return self.get_intermediate(input_list)
+
+    def get_sample_prediction(self, sample):
+        sample = np.array(sample).reshape(
+            1, self.ts_obj.n_steps, self.ts_obj.dimensions
+        )
+        output = self.predict_theta_from_input([sample])
+        samples = []
+        for mu, sigma in zip(
+            output[0].reshape((self.ts_obj.n_steps, self.ts_obj.dimensions)),
+            output[1].reshape((self.ts_obj.n_steps, self.ts_obj.dimensions)),
+        ):
+            sample = normal(loc=mu, scale=np.sqrt(sigma), size=self.ts_obj.dimensions)
+            samples.append(sample)
+        return np.array(samples)
 
 
 def ts_generator(ts_obj, n_steps):

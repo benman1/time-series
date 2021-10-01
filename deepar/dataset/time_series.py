@@ -12,7 +12,9 @@ class MockTs(Dataset):
     Created mainly for showcase/testing purpose
     """
 
-    def __init__(self, dimensions=1, t_min=0, t_max=30, resolution=0.1, batch_size=1, n_steps=10):
+    def __init__(
+        self, dimensions=1, t_min=0, t_max=30, resolution=0.1, batch_size=1, n_steps=10
+    ):
         self.dimensions = dimensions
         self.t_min = t_min
         self.t_max = t_max
@@ -71,6 +73,7 @@ class MockTs(Dataset):
 
     def __iter__(self):
         return self
+
 
 class TimeSeries(Dataset):
     def __init__(
