@@ -1,19 +1,29 @@
-from deepar.model import NNModel
-from deepar.model.layers import GaussianLayer
-from keras.layers import Input, Dense, Input
-from keras.models import Model
-from keras.layers import LSTM
-from keras import backend as K
+from functools import partial
 import logging
-from deepar.model.loss import gaussian_likelihood
 import numpy as np
 
-logger = logging.getLogger('deepar')
+from tensorflow.keras.layers import Input, Dense, Input, LSTM
+from tensorflow.keras.models import Model
+from tensorflow.keras import backend as K
+
+from deepar.model.loss import gaussian_likelihood
+from deepar.model import NNModel
+from deepar.model.layers import GaussianLayer
+
+
+logger = logging.getLogger("deepar")
 
 
 class DeepAR(NNModel):
-    def __init__(self, ts_obj, steps_per_epoch=50, epochs=100, loss=gaussian_likelihood,
-                 optimizer='adam', with_custom_nn_structure=None):
+    def __init__(
+        self,
+        ts_obj,
+        steps_per_epoch=50,
+        epochs=100,
+        loss=gaussian_likelihood,
+        optimizer="adam",
+        with_custom_nn_structure=None,
+    ):
 
         self.ts_obj = ts_obj
         self.inputs, self.z_sample = None, None
@@ -25,37 +35,43 @@ class DeepAR(NNModel):
         if with_custom_nn_structure:
             self.nn_structure = with_custom_nn_structure
         else:
-            self.nn_structure = DeepAR.basic_structure
-        self._output_layer_name = 'main_output'
+            self.nn_structure = partial(DeepAR.basic_structure, n_steps=self.ts_obj.n_steps)
+        self._output_layer_name = "main_output"
         self.get_intermediate = None
 
     @staticmethod
-    def basic_structure():
+    def basic_structure(n_steps=20):
         """
         This is the method that needs to be patched when changing NN structure
         :return: inputs_shape (tuple), inputs (Tensor), [loc, scale] (a list of theta parameters
         of the target likelihood)
         """
-        input_shape = (20, 1)
+        input_shape = (n_steps, 1)
         inputs = Input(shape=input_shape)
         x = LSTM(4, return_sequences=True)(inputs)
-        x = Dense(3, activation='relu')(x)
-        loc, scale = GaussianLayer(1, name='main_output')(x)
+        x = Dense(3, activation="relu")(x)
+        loc, scale = GaussianLayer(1, name="main_output")(x)
         return input_shape, inputs, [loc, scale]
+
+    def fit(self, verbose=False):
+        self.keras_model.fit(
+            ts_generator(self.ts_obj, self.ts_obj.n_steps),
+            steps_per_epoch=self.steps_per_epoch,
+            epochs=self.epochs,
+        )
+        if verbose:
+            logger.debug("Model was successfully trained")
+        self.get_intermediate = K.function(
+            inputs=[self.keras_model.input],
+            outputs=self.keras_model.get_layer(self._output_layer_name).output,
+        )
 
     def instantiate_and_fit(self, verbose=False):
         input_shape, inputs, theta = self.nn_structure()
         model = Model(inputs, theta[0])
         model.compile(loss=self.loss(theta[1]), optimizer=self.optimizer)
-        model.fit_generator(ts_generator(self.ts_obj,
-                                         input_shape[0]),
-                            steps_per_epoch=self.steps_per_epoch,
-                            epochs=self.epochs)
-        if verbose:
-            logger.debug('Model was successfully trained')
         self.keras_model = model
-        self.get_intermediate = K.function(inputs=[self.model.input],
-                                           outputs=self.model.get_layer(self._output_layer_name).output)
+        self.fit(verbose)
 
     @property
     def model(self):
@@ -70,7 +86,7 @@ class DeepAR(NNModel):
         corresponding to [[mu_values], [sigma_values]]
         """
         if not self.get_intermediate:
-            raise ValueError('TF model must be trained first!')
+            raise ValueError("TF model must be trained first!")
 
         return self.get_intermediate(input_list)
 

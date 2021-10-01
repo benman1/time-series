@@ -10,4 +10,3 @@ class NNModel(ABC):
 
     def instantiate_and_fit(self, **kwargs):
         pass
-

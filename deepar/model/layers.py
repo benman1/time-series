@@ -1,6 +1,6 @@
-from keras import backend as K
-from keras.initializers import glorot_normal
-from keras.layers import Layer
+from tensorflow.keras import backend as K
+from tensorflow.keras.initializers import glorot_normal
+from tensorflow.keras.layers import Layer
 
 
 class GaussianLayer(Layer):
@@ -11,22 +11,30 @@ class GaussianLayer(Layer):
 
     def build(self, input_shape):
         n_weight_rows = input_shape[2]
-        self.kernel_1 = self.add_weight(name='kernel_1',
-                                        shape=(n_weight_rows, self.output_dim),
-                                        initializer=glorot_normal(),
-                                        trainable=True)
-        self.kernel_2 = self.add_weight(name='kernel_2',
-                                        shape=(n_weight_rows, self.output_dim),
-                                        initializer=glorot_normal(),
-                                        trainable=True)
-        self.bias_1 = self.add_weight(name='bias_1',
-                                      shape=(self.output_dim,),
-                                      initializer=glorot_normal(),
-                                      trainable=True)
-        self.bias_2 = self.add_weight(name='bias_2',
-                                      shape=(self.output_dim,),
-                                      initializer=glorot_normal(),
-                                      trainable=True)
+        self.kernel_1 = self.add_weight(
+            name="kernel_1",
+            shape=(n_weight_rows, self.output_dim),
+            initializer=glorot_normal(),
+            trainable=True,
+        )
+        self.kernel_2 = self.add_weight(
+            name="kernel_2",
+            shape=(n_weight_rows, self.output_dim),
+            initializer=glorot_normal(),
+            trainable=True,
+        )
+        self.bias_1 = self.add_weight(
+            name="bias_1",
+            shape=(self.output_dim,),
+            initializer=glorot_normal(),
+            trainable=True,
+        )
+        self.bias_2 = self.add_weight(
+            name="bias_2",
+            shape=(self.output_dim,),
+            initializer=glorot_normal(),
+            trainable=True,
+        )
         super(GaussianLayer, self).build(input_shape)
 
     def call(self, x):

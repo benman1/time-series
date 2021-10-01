@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import logging
 
-logger = logging.getLogger('deepar')
+logger = logging.getLogger("deepar")
 
 
 class MockTs(Dataset):
@@ -11,24 +11,37 @@ class MockTs(Dataset):
     This class generates 'mock' time series data of the form (y = t * np.sin(t/6) / 3 +np.sin(t*2))
     Created mainly for showcase/testing purpose
     """
-    def __init__(self, t_min=0, t_max=30, resolution=.1):
+
+    def __init__(self, dimensions=1, t_min=0, t_max=30, resolution=0.1, batch_size=1, n_steps=10):
+        self.dimensions = dimensions
         self.t_min = t_min
         self.t_max = t_max
         self.resolution = resolution
         self.data = True
+        self.batch_size = batch_size
+        self.n_steps = n_steps
 
     @staticmethod
     def _time_series(t):
-        return t * np.sin(t/6) / 3 + np.sin(t*2)
+        return t * np.sin(t / 6) / 3 + np.sin(t * 2)
 
     def next_batch(self, batch_size, n_steps):
         """
         Generate next batch (x, y), generate y by lagging x (1 step)
         """
-        t0 = np.random.rand(batch_size, 1) * (self.t_max - self.t_min - n_steps * self.resolution)
-        Ts = t0 + np.arange(0., n_steps + 1) * self.resolution
-        ys = self._time_series(Ts)
-        return ys[:, :-1].reshape(-1, n_steps, 1), ys[:, 1:].reshape(-1, n_steps, 1)
+        Y = []
+        for dim in range(self.dimensions):
+            t0 = np.random.rand(batch_size, 1) * (
+                self.t_max - self.t_min - n_steps * self.resolution
+            )
+            Ts = t0 + np.arange(0.0, n_steps + 1) * self.resolution
+            ys = self._time_series(Ts)
+            Y.append(ys[:, :-1].reshape(-1, n_steps, 1))
+        return np.concatenate(Y, axis=2), np.concatenate(Y, axis=2)
+
+    def __next__(self):
+        """Iterator."""
+        return self.next_batch(n_steps=self.n_steps, batch_size=self.batch_size)
 
     @property
     def mock_ts(self):
@@ -56,16 +69,32 @@ class MockTs(Dataset):
             results.append(self._time_series(t_list[-1]))
         return results
 
+    def __iter__(self):
+        return self
 
 class TimeSeries(Dataset):
-    def __init__(self, pandas_df, one_hot_root_list=None, grouping_variable='category', scaler=None):
+    def __init__(
+        self,
+        pandas_df,
+        one_hot_root_list=None,
+        grouping_variable="category",
+        scaler=None,
+        n_steps=1,
+        batch_size=10,
+    ):
         super().__init__()
         self.data = pandas_df
         self.one_hot_root_list = one_hot_root_list
         self.grouping_variable = grouping_variable
         if self.data is None:
-            raise ValueError('Must provide a Pandas df to instantiate this class')
+            raise ValueError("Must provide a Pandas df to instantiate this class")
         self.scaler = scaler
+        self.batch_size = batch_size
+        self.n_steps = n_steps
+
+    def __next__(self):
+        """Iterator."""
+        return self.next_batch(n_steps=self.n_steps, batch_size=self.batch_size)
 
     def _one_hot_padding(self, pandas_df, padding_df):
         """
@@ -75,8 +104,11 @@ class TimeSeries(Dataset):
         :return:
         """
         for one_hot_root in self.one_hot_root_list:
-            one_hot_columns = [i for i in pandas_df.columns   # select columns equal to 1
-                               if i.startswith(one_hot_root) and pandas_df[i].values[0] == 1]
+            one_hot_columns = [
+                i
+                for i in pandas_df.columns  # select columns equal to 1
+                if i.startswith(one_hot_root) and pandas_df[i].values[0] == 1
+            ]
             for col in one_hot_columns:
                 padding_df[col] = 1
         return padding_df
@@ -90,8 +122,14 @@ class TimeSeries(Dataset):
         :return: X (feature_space), y
         """
         pad_length = desired_len - pandas_df.shape[0]
-        padding_df = pd.concat([pd.DataFrame({col: padding_val for col in pandas_df.columns},
-                                             index=[i for i in range(pad_length)])])
+        padding_df = pd.concat(
+            [
+                pd.DataFrame(
+                    {col: padding_val for col in pandas_df.columns},
+                    index=[i for i in range(pad_length)],
+                )
+            ]
+        )
 
         if self.one_hot_root_list:
             padding_df = self._one_hot_padding(pandas_df, padding_df)
@@ -109,16 +147,20 @@ class TimeSeries(Dataset):
         :return: a pandas df (sample)
         """
         if pandas_df.shape[0] < desired_len:
-            raise ValueError('Desired sample length is greater than df row len')
+            raise ValueError("Desired sample length is greater than df row len")
         if pandas_df.shape[0] == desired_len:
             return pandas_df
 
-        start_index = np.random.choice([i for i in range(0, pandas_df.shape[0] - desired_len + 1)])
-        return pandas_df.iloc[start_index: start_index+desired_len, ]
+        start_index = np.random.choice(
+            [i for i in range(0, pandas_df.shape[0] - desired_len + 1)]
+        )
+        return pandas_df.iloc[
+            start_index : start_index + desired_len,
+        ]
 
-    def next_batch(self, batch_size, n_steps,
-                   target_var='target', verbose=False,
-                   padding_value=0):
+    def next_batch(
+        self, batch_size, n_steps, target_var="target", verbose=False, padding_value=0
+    ):
         """
         :param batch_size: how many time series to be sampled in this batch (int)
         :param n_steps: how many RNN cells (int)
@@ -132,35 +174,45 @@ class TimeSeries(Dataset):
         groups_list = self.data[self.grouping_variable].unique()
         np.random.shuffle(groups_list)
         selected_groups = groups_list[:batch_size]
-        input_data = self.data[self.data[self.grouping_variable].isin(set(selected_groups))]
+        input_data = self.data[
+            self.data[self.grouping_variable].isin(set(selected_groups))
+        ]
 
         # Initial padding for each selected time series to reach n_steps
         sampled = []
         for cat, cat_data in input_data.groupby(self.grouping_variable):
-                if cat_data.shape[0] < n_steps:
-                    sampled_cat_data = self._pad_ts(pandas_df=cat_data,
-                                                    desired_len=n_steps,
-                                                    padding_val=padding_value)
-                else:
-                    sampled_cat_data = self._sample_ts(pandas_df=cat_data,
-                                                       desired_len=n_steps)
-                sampled.append(sampled_cat_data)
-                if verbose:
-                    logger.debug('Sampled data for {}'.format(cat))
-                    logger.debug(sampled_cat_data)
-        rnn_output = pd.concat(sampled).drop(columns=self.grouping_variable).reset_index(drop=True)
+            if cat_data.shape[0] < n_steps:
+                sampled_cat_data = self._pad_ts(
+                    pandas_df=cat_data, desired_len=n_steps, padding_val=padding_value
+                )
+            else:
+                sampled_cat_data = self._sample_ts(
+                    pandas_df=cat_data, desired_len=n_steps
+                )
+            sampled.append(sampled_cat_data)
+            if verbose:
+                logger.debug("Sampled data for {}".format(cat))
+                logger.debug(sampled_cat_data)
+        rnn_output = (
+            pd.concat(sampled)
+            .drop(columns=self.grouping_variable)
+            .reset_index(drop=True)
+        )
 
         if self.scaler:
             batch_scaler = self.scaler()
             n_rows = rnn_output.shape[0]
             # Scaling will have to be extended to handle multiple variables!
-            rnn_output['feature_1'] = rnn_output.feature_1.astype('float')
-            rnn_output[target_var] = rnn_output[target_var].astype('float')
+            rnn_output["feature_1"] = rnn_output.feature_1.astype("float")
+            rnn_output[target_var] = rnn_output[target_var].astype("float")
 
-            rnn_output['feature_1'] = batch_scaler.fit_transform(rnn_output.feature_1.values.reshape(n_rows, 1)).reshape(n_rows)
-            rnn_output[target_var] = batch_scaler.fit_transform(rnn_output[target_var].values.reshape(n_rows, 1)).reshape(n_rows)
+            rnn_output["feature_1"] = batch_scaler.fit_transform(
+                rnn_output.feature_1.values.reshape(n_rows, 1)
+            ).reshape(n_rows)
+            rnn_output[target_var] = batch_scaler.fit_transform(
+                rnn_output[target_var].values.reshape(n_rows, 1)
+            ).reshape(n_rows)
 
-        return rnn_output.drop(target_var, 1).values.reshape(batch_size, n_steps, -1), \
-               rnn_output[target_var].values.reshape(batch_size, n_steps, 1)
-
-
+        return rnn_output.drop(target_var, 1).values.reshape(
+            batch_size, n_steps, -1
+        ), rnn_output[target_var].values.reshape(batch_size, n_steps, 1)
