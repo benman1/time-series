@@ -216,6 +216,7 @@ class TimeSeries(Dataset):
                 rnn_output[target_var].values.reshape(n_rows, 1)
             ).reshape(n_rows)
 
-        return rnn_output.drop(target_var, 1).values.reshape(
-            batch_size, n_steps, -1
-        ), rnn_output[target_var].values.reshape(batch_size, n_steps, 1)
+        return (
+            rnn_output.drop(target_var, 1).values.reshape(batch_size, n_steps, -1),
+            rnn_output[target_var].values.reshape(batch_size, n_steps, 1),
+        )

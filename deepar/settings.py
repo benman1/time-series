@@ -16,10 +16,7 @@ LOG_CONF = {
         },
     },
     "loggers": {
-        "deepar": {
-            "handlers": ["stream"],
-            "level": os.getenv("DF_LOG_LEVEL", "DEBUG"),
-        }
+        "deepar": {"handlers": ["stream"], "level": os.getenv("DF_LOG_LEVEL", "DEBUG"),}
     },
 }
 
