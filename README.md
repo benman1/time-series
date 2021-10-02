@@ -4,8 +4,6 @@
 
 Tensorflow implementation of Amazon DeepAR
 
-DISCLAIMER: This package is under active development!
-
 ## Example usage:
 Fit a univariate time series:
 ```python
@@ -18,7 +16,7 @@ disable_eager_execution()
 from deepar.dataset.time_series import MockTs
 from deepar.model.lstm import DeepAR
 
-ts = MockTs()
+ts = MockTs(dimensions=1)  # you can change this for multivariate time-series!
 dp_model = DeepAR(ts, epochs=50)
 dp_model.instantiate_and_fit()
 ```
@@ -43,12 +41,10 @@ for i in tqdm.tqdm(range(300)):
     ))
 
 res_np = np.concatenate(ress, axis=0)
+fig = plt.figure(figsize=(12, 10))
 
-fig = plt.figure(figsize=(12, 6))
-gs = fig.add_gridspec(ts.dimensions, hspace=0)
-axs = gs.subplots(sharex=True)
-
-for dim, ax in zip(range(ts.dimensions), axs):
+for dim in range(ts.dimensions):
+    ax = fig.add_subplot(ts.dimensions, 1, dim+1)
     res_df = pd.DataFrame(res_np[:, :, 0]).T
     tot_res = res_df
 
