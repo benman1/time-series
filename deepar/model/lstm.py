@@ -58,11 +58,12 @@ class DeepAR(NNModel):
         loc, scale = GaussianLayer(dimensions, name="main_output")(x)
         return input_shape, inputs, [loc, scale]
 
-    def fit(self, verbose=False):
+    def fit(self, verbose=False, epochs=self.epochs):
         self.keras_model.fit(
             ts_generator(self.ts_obj, self.ts_obj.n_steps),
             steps_per_epoch=self.steps_per_epoch,
             epochs=self.epochs,
+            verbose=verbose,
         )
         if verbose:
             logger.debug("Model was successfully trained")
@@ -101,13 +102,12 @@ class DeepAR(NNModel):
         )
         output = self.predict_theta_from_input([sample])
         samples = []
-        for mu, sigma in zip(
-            output[0].reshape((self.ts_obj.n_steps, self.ts_obj.dimensions)),
-            output[1].reshape((self.ts_obj.n_steps, self.ts_obj.dimensions)),
-        ):
-            sample = normal(loc=mu, scale=np.sqrt(sigma), size=self.ts_obj.dimensions)
+        for mu, sigma in zip(output[0].reshape(-1), output[1].reshape(-1)):
+            sample = normal(
+                loc=mu, scale=np.sqrt(sigma), size=1
+            )  # self.ts_obj.dimensions)
             samples.append(sample)
-        return np.array(samples)
+        return np.array(samples).reshape((self.ts_obj.n_steps, self.ts_obj.dimensions))
 
 
 def ts_generator(ts_obj, n_steps):
