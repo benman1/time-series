@@ -1,18 +1,22 @@
+import math
 from functools import partial
 import logging
+from typing import Optional, Union
+
 import numpy as np
 from numpy.random import normal
 
-from tensorflow.keras.layers import Input, Dense, Input, LSTM
+from tensorflow.keras.layers import Dense, Input, LSTM
 from tensorflow.keras.models import Model
 from tensorflow.keras import backend as K
+from tensorflow.keras import callbacks
 
 from deepar.model.loss import gaussian_likelihood
 from deepar.model import NNModel
 from deepar.model.layers import GaussianLayer
 
 
-logger = logging.getLogger("deepar")
+logger = logging.getLogger(__name__)
 
 
 class DeepAR(NNModel):
@@ -25,6 +29,7 @@ class DeepAR(NNModel):
         optimizer="adam",
         with_custom_nn_structure=None,
     ):
+        """Init."""
 
         self.ts_obj = ts_obj
         self.inputs, self.z_sample = None, None
@@ -49,21 +54,47 @@ class DeepAR(NNModel):
         """
         This is the method that needs to be patched when changing NN structure
         :return: inputs_shape (tuple), inputs (Tensor), [loc, scale] (a list of theta parameters
-        of the target likelihood)
+        of the target likelihood).
+
+        Please note that I've made up scaling rules of the hidden layer dimensions.
         """
         input_shape = (n_steps, dimensions)
         inputs = Input(shape=input_shape)
-        x = LSTM(4, return_sequences=True)(inputs)
-        x = Dense(3, activation="relu")(x)
+        x = LSTM(
+            int(4 * (1 + math.pow(math.log(dimensions), 4))),
+            return_sequences=True,
+            dropout=0.1,
+        )(inputs)
+        x = Dense(int(4 * (1 + math.log(dimensions))), activation="relu")(x)
         loc, scale = GaussianLayer(dimensions, name="main_output")(x)
         return input_shape, inputs, [loc, scale]
 
-    def fit(self, verbose=False, epochs=self.epochs):
+    def fit(
+        self,
+        epochs: Optional[int] = None,
+        verbose: Union[str, int] = "auto",
+        patience: int = 10,
+    ):
+        """Fit model.
+
+        This is called from instantiate and fit().
+
+        Args:
+            epochs (Optional[int]): number of epochs to train. If nothing
+                defined, take self.epochs. Please the early stopping (patience).
+            verbose (Union[str, int]): passed to keras.fit(). Can be
+                "auto", 0, or 1.
+            patience (int): Number of epochs without without improvement to stop.
+        """
+        if not epochs:
+            epochs = self.epochs
+        callback = callbacks.EarlyStopping(monitor="loss", patience=patience)
         self.keras_model.fit(
             ts_generator(self.ts_obj, self.ts_obj.n_steps),
             steps_per_epoch=self.steps_per_epoch,
-            epochs=self.epochs,
+            epochs=epochs,
             verbose=verbose,
+            callbacks=[callback],
         )
         if verbose:
             logger.debug("Model was successfully trained")
@@ -72,12 +103,21 @@ class DeepAR(NNModel):
             outputs=self.keras_model.get_layer(self._output_layer_name).output,
         )
 
-    def instantiate_and_fit(self, verbose=False):
+    def build_model(self):
         input_shape, inputs, theta = self.nn_structure()
         model = Model(inputs, theta[0])
         model.compile(loss=self.loss(theta[1]), optimizer=self.optimizer)
         self.keras_model = model
-        self.fit(verbose)
+
+    def instantiate_and_fit(
+        self,
+        epochs: Optional[int] = None,
+        verbose: Union[str, int] = "auto",
+        do_fit: bool = True,
+    ):
+        """Compile and train model."""
+        self.build_model()
+        self.fit(verbose=verbose, epochs=epochs)
 
     @property
     def model(self):
@@ -98,7 +138,7 @@ class DeepAR(NNModel):
 
     def get_sample_prediction(self, sample):
         sample = np.array(sample).reshape(
-            1, self.ts_obj.n_steps, self.ts_obj.dimensions
+            (1, self.ts_obj.n_steps, self.ts_obj.dimensions)
         )
         output = self.predict_theta_from_input([sample])
         samples = []
