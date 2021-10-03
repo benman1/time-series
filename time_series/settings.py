@@ -16,7 +16,10 @@ LOG_CONF = {
         },
     },
     "loggers": {
-        "time_series": {"handlers": ["stream"], "level": os.getenv("DF_LOG_LEVEL", "DEBUG"),}
+        "time_series": {
+            "handlers": ["stream"],
+            "level": os.getenv("DF_LOG_LEVEL", "DEBUG"),
+        }
     },
 }
 
