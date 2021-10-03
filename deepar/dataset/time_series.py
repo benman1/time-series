@@ -5,6 +5,7 @@ from typing import Optional, Sequence
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+from statsmodels.tsa.tsatools import lagmat
 
 from deepar.dataset import Dataset
 
@@ -23,6 +24,23 @@ class WindowGenerator:
         test_df=Optional[pd.DataFrame],
         label_columns: Optional[Sequence[str]] = None,
     ):
+        """Create a window generator for the time-series.
+
+        Adapted from: https://www.tensorflow.org/tutorials/structured_data/time_series
+
+        Parameters
+        ----------
+        input_width: how many columns
+        label_width: how many columns to predict (should be same as input_width)
+        shift: how many lags to work with
+        train_df: the dataframe, where the time-series come from. Each row should be a
+            time step, and each column is a variable that varies over time.
+        val_df: dataframe for validation.
+        test_df: dataframe for testing.
+        label_columns: this can be used for plotting.
+
+        The data will come as shape [(None, input_width, shift)]
+        """
         # Store the raw data.
         self.train_df = train_df
         self.val_df = val_df
@@ -120,10 +138,7 @@ class TimeSeries(Dataset):
         self, pandas_df: pd.DataFrame, n_steps: int = 1, batch_size: int = 10,
     ):
         super().__init__()
-        assert (
-            isinstance(pandas_df, (pd.Series, pd.DataFrame)),
-            "Must provide a Pandas df to instantiate this class",
-        )
+        assert isinstance(pandas_df, (pd.Series, pd.DataFrame)), "Must provide a Pandas df to instantiate this class"
         self.batch_size = batch_size
         self.n_steps = n_steps
         self.dimensions = len(pandas_df.columns)
@@ -181,3 +196,22 @@ class MockTs(TimeSeries):
 
     def __iter__(self):
         return self
+
+
+def sample_to_input(sample, lag: int):
+    """Reshape a time-series to be suitable for the model.
+
+    Arguments:
+        Sample (pd.DataFrame): time x value columns.
+        lag (int): the number of previous steps to use as predictors.
+    Output:
+        time x columns x n_steps
+    """
+    in_dim = sample.shape[1]
+    # drop rows with unknown values both at beginning and end
+    return np.concatenate([
+        np.expand_dims(
+            lagmat(sample.values[:, i], maxlag=lag, trim='both'), axis=1
+        ) for i in range(in_dim)],
+        axis=1
+    )
