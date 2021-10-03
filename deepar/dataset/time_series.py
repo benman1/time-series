@@ -1,222 +1,183 @@
-from deepar.dataset import Dataset
+import datetime
+import logging
+from typing import Optional, Sequence
+
 import numpy as np
 import pandas as pd
-import logging
+import tensorflow as tf
 
-logger = logging.getLogger("deepar")
+from deepar.dataset import Dataset
 
 
-class MockTs(Dataset):
-    """
-    This class generates 'mock' time series data of the form (y = t * np.sin(t/6) / 3 +np.sin(t*2))
-    Created mainly for showcase/testing purpose
-    """
+LOGGER = logging.getLogger(__file__)
 
+
+class WindowGenerator:
     def __init__(
-        self, dimensions=1, t_min=0, t_max=30, resolution=0.1, batch_size=1, n_steps=10
+        self,
+        input_width: int,
+        label_width: int,
+        shift: int,
+        train_df=pd.DataFrame,
+        val_df=Optional[pd.DataFrame],
+        test_df=Optional[pd.DataFrame],
+        label_columns: Optional[Sequence[str]] = None,
     ):
-        self.dimensions = dimensions
-        self.t_min = t_min
-        self.t_max = t_max
-        self.resolution = resolution
-        self.data = True
-        self.batch_size = batch_size
-        self.n_steps = n_steps
+        # Store the raw data.
+        self.train_df = train_df
+        self.val_df = val_df
+        self.test_df = test_df
 
-    @staticmethod
-    def _time_series(t):
-        return t * np.sin(t / 6) / 3 + np.sin(t * 2)
+        # Work out the label column indices.
+        self.label_columns = label_columns
+        if label_columns is not None:
+            self.label_columns_indices = {
+                name: i for i, name in enumerate(label_columns)
+            }
+        self.column_indices = {name: i for i, name in enumerate(train_df.columns)}
 
-    def next_batch(self, batch_size, n_steps):
-        """
-        Generate next batch (x, y), generate y by lagging x (1 step)
-        """
-        Y = []
-        for dim in range(self.dimensions):
-            t0 = np.random.rand(batch_size, 1) * (
-                self.t_max - self.t_min - n_steps * self.resolution
+        # Work out the window parameters.
+        self.input_width = input_width
+        self.label_width = label_width
+        self.shift = shift
+
+        self.total_window_size = input_width + shift
+
+        self.input_slice = slice(0, input_width)
+        self.input_indices = np.arange(self.total_window_size)[self.input_slice]
+
+        self.label_start = self.total_window_size - self.label_width
+        self.labels_slice = slice(self.label_start, None)
+        self.label_indices = np.arange(self.total_window_size)[self.labels_slice]
+
+    def split_window(self, features):
+        inputs = features[:, self.input_slice, :]
+        labels = features[:, self.labels_slice, :]
+        if self.label_columns is not None:
+            labels = tf.stack(
+                [
+                    labels[:, :, self.column_indices[name]]
+                    for name in self.label_columns
+                ],
+                axis=-1,
             )
-            Ts = t0 + np.arange(0.0, n_steps + 1) * self.resolution
-            ys = self._time_series(Ts)
-            Y.append(ys[:, :-1].reshape(-1, n_steps, 1))
-        return np.concatenate(Y, axis=2), np.concatenate(Y, axis=2)
 
-    def __next__(self):
-        """Iterator."""
-        return self.next_batch(n_steps=self.n_steps, batch_size=self.batch_size)
+        # Slicing doesn't preserve static shape information, so set the shapes
+        # manually. This way the `tf.data.Datasets` are easier to inspect.
+        inputs.set_shape([None, self.input_width, None])
+        labels.set_shape([None, self.label_width, None])
+
+        return inputs, labels
+
+    def make_dataset(self, data, shuffle: bool = True):
+        data = np.array(data, dtype=np.float32)
+        ds = tf.keras.preprocessing.timeseries_dataset_from_array(
+            data=data,
+            targets=None,
+            sequence_length=self.total_window_size,
+            sequence_stride=1,
+            shuffle=shuffle,
+            batch_size=32,
+        )
+        return ds.map(self.split_window)
+
+    def __repr__(self):
+        return "\n".join(
+            [
+                f"Total window size: {self.total_window_size}",
+                f"Input indices: {self.input_indices}",
+                f"Label indices: {self.label_indices}",
+                f"Label column name(s): {self.label_columns}",
+            ]
+        )
 
     @property
-    def mock_ts(self):
-        """
-        Return the data used for training (ranging from self.t_min and self.t_max, with resolution self.resolution)
-        :return: a Numpy array
-        """
-        t_list = [self.t_min]
-        results = [self._time_series(t_list[0])]
-        while t_list[-1] < self.t_max:
-            t_list.append(t_list[-1] + self.resolution)
-            results.append(self._time_series(t_list[-1]))
-        return results
+    def train(self):
+        return self.make_dataset(self.train_df)
 
-    def generate_test_data(self, n_steps):
-        """
-        Generate test data outside of the training set (t > self.t_max)
-        :param n_steps:
-        :return:
-        """
-        t_list = [self.t_max + self.resolution]
-        results = [self._time_series(t_list[0])]
-        for i in range(1, n_steps):
-            t_list.append(t_list[-1] + self.resolution)
-            results.append(self._time_series(t_list[-1]))
-        return results
+    @property
+    def val(self):
+        return self.make_dataset(self.val_df)
 
-    def __iter__(self):
-        return self
+    @property
+    def test(self):
+        return self.make_dataset(self.test_df, shuffle=False)
+
+    @property
+    def example(self):
+        """Get and cache an example batch of `inputs, labels` for plotting."""
+        result = getattr(self, "_example", None)
+        if result is None:
+            # No example batch was found, so get one from the `.train` dataset
+            result = next(iter(self.train))
+            # And cache it for next time
+            self._example = result
+        return result
 
 
 class TimeSeries(Dataset):
     def __init__(
-        self,
-        pandas_df,
-        one_hot_root_list=None,
-        grouping_variable="category",
-        scaler=None,
-        n_steps=1,
-        batch_size=10,
+        self, pandas_df: pd.DataFrame, n_steps: int = 1, batch_size: int = 10,
     ):
         super().__init__()
-        self.data = pandas_df
-        self.one_hot_root_list = one_hot_root_list
-        self.grouping_variable = grouping_variable
-        if self.data is None:
-            raise ValueError("Must provide a Pandas df to instantiate this class")
-        self.scaler = scaler
+        assert (
+            isinstance(pandas_df, (pd.Series, pd.DataFrame)),
+            "Must provide a Pandas df to instantiate this class",
+        )
         self.batch_size = batch_size
         self.n_steps = n_steps
+        self.dimensions = len(pandas_df.columns)
+
+        data = np.array(pandas_df, dtype=np.float32)
+        self.ds = tf.keras.preprocessing.timeseries_dataset_from_array(
+            data=data,
+            targets=None,
+            sequence_length=self.n_steps,
+            sequence_stride=1,
+            shuffle=True,
+            batch_size=self.batch_size,
+        )
 
     def __next__(self):
         """Iterator."""
-        return self.next_batch(n_steps=self.n_steps, batch_size=self.batch_size)
+        return self.ds.next()
 
-    def _one_hot_padding(self, pandas_df, padding_df):
-        """
-        Util padding function
-        :param padding_df:
-        :param one_hot_root_list:
-        :return:
-        """
-        for one_hot_root in self.one_hot_root_list:
-            one_hot_columns = [
-                i
-                for i in pandas_df.columns  # select columns equal to 1
-                if i.startswith(one_hot_root) and pandas_df[i].values[0] == 1
-            ]
-            for col in one_hot_columns:
-                padding_df[col] = 1
-        return padding_df
 
-    def _pad_ts(self, pandas_df, desired_len, padding_val=0):
-        """
-        Add padding int to the time series
-        :param pandas_df:
-        :param desired_len: (int)
-        :param padding_val: (int)
-        :return: X (feature_space), y
-        """
-        pad_length = desired_len - pandas_df.shape[0]
-        padding_df = pd.concat(
-            [
-                pd.DataFrame(
-                    {col: padding_val for col in pandas_df.columns},
-                    index=[i for i in range(pad_length)],
-                )
-            ]
+class MockTs(TimeSeries):
+    """This class generates 'mock' time series data."""
+
+    def __init__(self, dimensions: int = 1, batch_size: int = 1, n_steps: int = 10):
+        self.dimensions = dimensions
+        self.batch_size = batch_size
+        self.n_steps = n_steps
+        data = pd.DataFrame(
+            {f"col_{i}": self.generate_time_series() for i in range(self.dimensions)}
         )
-
-        if self.one_hot_root_list:
-            padding_df = self._one_hot_padding(pandas_df, padding_df)
-
-        return pd.concat([padding_df, pandas_df]).reset_index(drop=True)
+        self.ds = tf.keras.preprocessing.timeseries_dataset_from_array(
+            data=data,
+            targets=None,
+            sequence_length=self.n_steps,
+            sequence_stride=1,
+            shuffle=True,
+            batch_size=self.batch_size,
+        )
 
     @staticmethod
-    def _sample_ts(pandas_df, desired_len):
-        """
-
-        :param pandas_df: input pandas df with 'target' columns e features
-        :param desired_len: desired sample length (number of rows)
-        :param padding_val: default is 0
-        :param initial_obs: how many observations to skip at the beginning
-        :return: a pandas df (sample)
-        """
-        if pandas_df.shape[0] < desired_len:
-            raise ValueError("Desired sample length is greater than df row len")
-        if pandas_df.shape[0] == desired_len:
-            return pandas_df
-
-        start_index = np.random.choice(
-            [i for i in range(0, pandas_df.shape[0] - desired_len + 1)]
+    def generate_time_series(freq: float = 365.2425 * 24 * 60 * 60):
+        date = pd.date_range(
+            start=datetime.date(
+                2016, np.random.randint(1, 12), np.random.randint(1, 29)
+            ),
+            periods=800,
+            freq="D",
         )
-        return pandas_df.iloc[
-            start_index : start_index + desired_len,
-        ]
-
-    def next_batch(
-        self, batch_size, n_steps, target_var="target", verbose=False, padding_value=0
-    ):
-        """
-        :param batch_size: how many time series to be sampled in this batch (int)
-        :param n_steps: how many RNN cells (int)
-        :param target_var: (str)
-        :param verbose: (boolean)
-        :param padding_value: (float)
-        :return: X (feature space), y
-        """
-
-        # Select n_batch time series
-        groups_list = self.data[self.grouping_variable].unique()
-        np.random.shuffle(groups_list)
-        selected_groups = groups_list[:batch_size]
-        input_data = self.data[
-            self.data[self.grouping_variable].isin(set(selected_groups))
-        ]
-
-        # Initial padding for each selected time series to reach n_steps
-        sampled = []
-        for cat, cat_data in input_data.groupby(self.grouping_variable):
-            if cat_data.shape[0] < n_steps:
-                sampled_cat_data = self._pad_ts(
-                    pandas_df=cat_data, desired_len=n_steps, padding_val=padding_value
-                )
-            else:
-                sampled_cat_data = self._sample_ts(
-                    pandas_df=cat_data, desired_len=n_steps
-                )
-            sampled.append(sampled_cat_data)
-            if verbose:
-                logger.debug("Sampled data for {}".format(cat))
-                logger.debug(sampled_cat_data)
-        rnn_output = (
-            pd.concat(sampled)
-            .drop(columns=self.grouping_variable)
-            .reset_index(drop=True)
+        return np.random.randint(1, 10000) * (
+            1 + np.sin(date.astype("int64") // 1e9 * (2 * np.pi / freq))
         )
 
-        if self.scaler:
-            batch_scaler = self.scaler()
-            n_rows = rnn_output.shape[0]
-            # Scaling will have to be extended to handle multiple variables!
-            rnn_output["feature_1"] = rnn_output.feature_1.astype("float")
-            rnn_output[target_var] = rnn_output[target_var].astype("float")
+    def __next__(self):
+        for batch in self.ds:
+            yield batch
 
-            rnn_output["feature_1"] = batch_scaler.fit_transform(
-                rnn_output.feature_1.values.reshape(n_rows, 1)
-            ).reshape(n_rows)
-            rnn_output[target_var] = batch_scaler.fit_transform(
-                rnn_output[target_var].values.reshape(n_rows, 1)
-            ).reshape(n_rows)
-
-        return (
-            rnn_output.drop(target_var, 1).values.reshape(batch_size, n_steps, -1),
-            rnn_output[target_var].values.reshape(batch_size, n_steps, 1),
-        )
+    def __iter__(self):
+        return self
