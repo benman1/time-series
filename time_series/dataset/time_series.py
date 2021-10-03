@@ -251,14 +251,14 @@ class TrainingDataSet:
         self.train_split = train_split
         lagged = sample_to_input(df, lag)
         y = np.roll(lagged, shift=-lag, axis=0)
-        split_point = int(len(df) / 100 * train_split)  # points for training
+        split_point = int(len(df) * train_split)  # points for training
         self.X_train, self.X_test = (
             lagged[:split_point, ...],
-            lagged[-split_point:, ...],
+            lagged[split_point:, ...],
         )
         self.y_train, self.y_test = (
             y[:split_point, ...],
-            y[-split_point:, ...],
+            y[split_point:, ...],
         )
 
     @property
