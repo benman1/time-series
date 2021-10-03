@@ -42,12 +42,12 @@ class DeepAR(NNModel):
         self.y = np.roll(lagged, shift=-MAXLAG, axis=0)
         self.split_point = len(df) // 10 * 8  # 80% of points for training
         self.X_train, self.X_test = (
-            lagged[:self.split_point, ...],
-            lagged[-self.split_point:, ...]
+            lagged[: self.split_point, ...],
+            lagged[-self.split_point :, ...],
         )
         self.y_train, self.y_test = (
-            self.y[:self.split_point, ...],
-            self.y[-self.split_point:, ...]
+            self.y[: self.split_point, ...],
+            self.y[-self.split_point :, ...],
         )
         self.inputs, self.z_sample = None, None
         self.epochs = epochs
@@ -100,16 +100,22 @@ class DeepAR(NNModel):
             patience (int): Number of epochs without without improvement to stop.
         """
         from tensorflow.python.framework.ops import disable_eager_execution
+
         disable_eager_execution()
 
         from tensorflow.compat.v1.experimental import output_all_intermediates
+
         output_all_intermediates(True)
 
         if not epochs:
             epochs = self.epochs
         callback = callbacks.EarlyStopping(monitor="loss", patience=patience)
         self.keras_model.fit(
-            self.X_train, self.y_train, epochs=epochs, verbose=verbose, callbacks=[callback],
+            self.X_train,
+            self.y_train,
+            epochs=epochs,
+            verbose=verbose,
+            callbacks=[callback],
         )
         if verbose:
             LOGGER.debug("Model was successfully trained")
@@ -176,6 +182,7 @@ if __name__ == "__main__":
     output_all_intermediates(True)
 
     from deepar.dataset.utils import get_energy_demand
+
     train_df = get_energy_demand()
 
     dp_model = DeepAR(train_df, epochs=10)

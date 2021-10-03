@@ -138,7 +138,9 @@ class TimeSeries(Dataset):
         self, pandas_df: pd.DataFrame, n_steps: int = 1, batch_size: int = 10,
     ):
         super().__init__()
-        assert isinstance(pandas_df, (pd.Series, pd.DataFrame)), "Must provide a Pandas df to instantiate this class"
+        assert isinstance(
+            pandas_df, (pd.Series, pd.DataFrame)
+        ), "Must provide a Pandas df to instantiate this class"
         self.batch_size = batch_size
         self.n_steps = n_steps
         self.dimensions = len(pandas_df.columns)
@@ -209,9 +211,10 @@ def sample_to_input(sample, lag: int):
     """
     in_dim = sample.shape[1]
     # drop rows with unknown values both at beginning and end
-    return np.concatenate([
-        np.expand_dims(
-            lagmat(sample.values[:, i], maxlag=lag, trim='both'), axis=1
-        ) for i in range(in_dim)],
-        axis=1
+    return np.concatenate(
+        [
+            np.expand_dims(lagmat(sample.values[:, i], maxlag=lag, trim="both"), axis=1)
+            for i in range(in_dim)
+        ],
+        axis=1,
     )
