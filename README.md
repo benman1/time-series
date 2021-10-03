@@ -6,11 +6,13 @@ Tensorflow implementation of Amazon DeepAR
 
 ## Example usage:
 Fit a univariate time series:
+
 ```python
-%load_ext autoreload
-%autoreload 2
+% load_ext autoreload
+% autoreload
 
 from tensorflow.python.framework.ops import disable_eager_execution
+
 disable_eager_execution()
 
 from deepar.dataset.time_series import MockTs
