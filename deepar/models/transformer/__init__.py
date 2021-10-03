@@ -4,11 +4,11 @@ By Theodoros Ntakouris, https://github.com/ntakouris
 """
 from typing import Optional, Sequence
 
+import tensorflow as tf
 from tensorflow.keras import Model
 
 from deepar.dataset.time_series import TrainingDataSet
 from deepar.models import NNModel
-from tensorflow import keras
 from tensorflow.keras import layers
 
 
@@ -65,7 +65,7 @@ class Transformer(NNModel):
         dropout: float = 0.0,
         mlp_dropout: float = 0.0,
     ):
-        inputs = keras.Input(shape=self.data.input_shape)
+        inputs = tf.keras.Input(shape=self.data.input_shape)
         x = inputs
         for _ in range(num_transformer_blocks):
             x = Transformer.transformer_encoder(
@@ -92,7 +92,7 @@ class Transformer(NNModel):
         self.model = Model(inputs, outputs)
         self.model.compile(
             loss="sparse_categorical_crossentropy",
-            optimizer=keras.optimizers.Adam(learning_rate=1e-4),
+            optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
             metrics=["sparse_categorical_accuracy"],
         )
         print(self.model.summary())
