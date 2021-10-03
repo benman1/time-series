@@ -10,10 +10,10 @@ from tensorflow.keras.layers import Dense, Input, LSTM
 from tensorflow.keras.models import Model
 from tensorflow.keras import callbacks
 
-from deepar.dataset.time_series import WindowGenerator, sample_to_input
-from deepar.model.loss import gaussian_likelihood
-from deepar.model import NNModel
-from deepar.model.layers import GaussianLayer
+from deepar.dataset.time_series import sample_to_input
+from deepar.models.deepar.loss import gaussian_likelihood
+from deepar.models import NNModel
+from deepar.models.deepar.layers import GaussianLayer
 
 
 LOGGER = logging.getLogger(__name__)
@@ -88,7 +88,7 @@ class DeepAR(NNModel):
         verbose: Union[str, int] = "auto",
         patience: int = 10,
     ):
-        """Fit model.
+        """Fit models.
 
         This is called from instantiate and fit().
 
@@ -126,7 +126,7 @@ class DeepAR(NNModel):
         self.gaussian_layer.compile(loss="mse", optimizer="adam")
 
     def instantiate_and_fit(self, do_fit: bool = True, **fit_kwargs):
-        """Compile and train model."""
+        """Compile and train models."""
         self.build_model()
         if do_fit:
             self.fit(**fit_kwargs)
@@ -150,6 +150,7 @@ class DeepAR(NNModel):
         return self.gaussian_layer.predict(input_list)
 
     def get_sample_prediction(self, sample_df: pd.DataFrame):
+        """WIP."""
         self.ts_obj.test_df = sample_df
         sample = self.ts_obj.test
         output = self.predict_theta_from_input(sample)

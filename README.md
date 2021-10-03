@@ -8,7 +8,8 @@ Tensorflow implementation of Amazon DeepAR
 Fit a univariate time series:
 
 ```python
-% load_ext autoreload
+% load_ext
+autoreload
 % autoreload
 
 from tensorflow.python.framework.ops import disable_eager_execution
@@ -16,7 +17,7 @@ from tensorflow.python.framework.ops import disable_eager_execution
 disable_eager_execution()
 
 from deepar.dataset.time_series import MockTs
-from deepar.model.lstm import DeepAR
+from deepar.models.deepar.model import DeepAR
 
 ts = MockTs(dimensions=1)  # you can change this for multivariate time-series!
 dp_model = DeepAR(ts, epochs=50)
