@@ -1,4 +1,5 @@
-import dataclasses
+"""Time-series data classes."""
+from dataclasses import dataclass
 import datetime
 import logging
 from typing import Optional, Sequence
@@ -201,27 +202,35 @@ class MockTs(TimeSeries):
         return self
 
 
-def sample_to_input(sample, lag: int):
+def sample_to_input(
+    sample: pd.DataFrame, lag: int, two_dim: bool = False
+) -> np.typing.ArrayLike:
     """Reshape a time-series to be suitable for the models.
 
     Arguments:
         sample (pd.DataFrame): time x value columns.
         lag (int): the number of previous steps to use as predictors.
+        two_dim (bool): whether to reshape as 2D (default 3D)
     Output:
-        time x columns x n_steps
+        time x columns x lag or time x (columns*lag)
     """
     in_dim = sample.shape[1]
     # drop rows with unknown values both at beginning and end
-    return np.concatenate(
-        [
-            np.expand_dims(lagmat(sample.values[:, i], maxlag=lag, trim="both"), axis=1)
-            for i in range(in_dim)
-        ],
-        axis=1,
-    )
+    if two_dim:
+        return lagmat(sample.values, maxlag=lag, trim="both")
+    else:
+        return np.concatenate(
+            [
+                np.expand_dims(
+                    lagmat(sample.values[:, i], maxlag=lag, trim="both"), axis=1
+                )
+                for i in range(in_dim)
+            ],
+            axis=1,
+        )
 
 
-@dataclasses.dataclass
+@dataclass
 class TrainingDataSet:
     """This is in place for a generator.
 

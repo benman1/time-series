@@ -15,7 +15,7 @@ LOGGER = logging.getLogger(__name__)
 class GaussianProcess(NNModel):
     """Gaussian Process model based on GPFlow library.
 
-    Data should come in this shape:
+    Data should come in this shape (we'll have to reshape our data to 2D):
     X_train: (instances x variables) -> y_train: (instances x values)
     """
     def __init__(self, data: TrainingDataSet, kernel: gpflow.kernels.Kernel = gpflow.kernels.Matern52(), meanf: Optional[gpflow.mean_functions.MeanFunction] = None):
