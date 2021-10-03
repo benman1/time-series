@@ -35,7 +35,8 @@ class NNModel(ABC):
         * model.predict() instead of model.n_beats.predict()
         * same for fit(), train_on_batch()
         """
-        attr = getattr(self.model, name, None)
-        if attr is None:
-            return getattr(self, name)
-        return attr
+        try:
+            return self.__getattribute__(name)
+        except AttributeError:
+            pass
+        return getattr(self.models[self._FORECAST], name, None)
