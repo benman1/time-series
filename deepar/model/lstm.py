@@ -8,45 +8,59 @@ import pandas as pd
 
 from tensorflow.keras.layers import Dense, Input, LSTM
 from tensorflow.keras.models import Model
-from tensorflow.keras import backend as K
 from tensorflow.keras import callbacks
 
-from deepar.dataset.time_series import WindowGenerator
+from deepar.dataset.time_series import WindowGenerator, sample_to_input
 from deepar.model.loss import gaussian_likelihood
 from deepar.model import NNModel
 from deepar.model.layers import GaussianLayer
 
 
-logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 
 class DeepAR(NNModel):
     def __init__(
         self,
-        ts_obj: WindowGenerator,
+        df: pd.DataFrame,
         epochs=100,
         loss=gaussian_likelihood,
-        optimizer="adam",
-        with_custom_nn_structure=None,
+        optimizer: str = "adam",
     ):
-        """Init."""
+        """Init.
 
-        self.ts_obj = ts_obj
+        Arguments:
+            df (pd.DataFrame): a dataframe of shape time x value columns
+            epochs: how many epochs to train (initially).
+            loss: a loss function.
+            optimizer: which optimizer to use.
+        """
+        # we could be moving a window generator here:
+        # self.ts_obj = WindowGenerator(input_width=10, label_width=10, shift=8, train_df=df)
+        MAXLAG = 10
+        lagged = sample_to_input(df, MAXLAG)
+        self.y = np.roll(lagged, shift=-MAXLAG, axis=0)
+        self.split_point = len(df) // 10 * 8  # 80% of points for training
+        self.X_train, self.X_test = (
+            lagged[:self.split_point, ...],
+            lagged[-self.split_point:, ...]
+        )
+        self.y_train, self.y_test = (
+            self.y[:self.split_point, ...],
+            self.y[-self.split_point:, ...]
+        )
         self.inputs, self.z_sample = None, None
         self.epochs = epochs
         self.loss = loss
         self.optimizer = optimizer
-        self.keras_model = None
-        if with_custom_nn_structure:
-            self.nn_structure = with_custom_nn_structure
-        else:
-            self.nn_structure = partial(
-                DeepAR.basic_structure,
-                n_steps=self.ts_obj.input_width,
-                dimensions=len(self.ts_obj.train_df.columns),
-            )
+        self.keras_model: Optional[Model] = None
+        self.nn_structure = partial(
+            DeepAR.basic_structure,
+            n_steps=self.y.shape[2],
+            dimensions=self.X_train.shape[1],
+        )
         self._output_layer_name = "main_output"
-        self.get_intermediate = None
+        self.gaussian_layer: Optional[Model] = None
 
     @staticmethod
     def basic_structure(n_steps=20, dimensions=1):
@@ -86,31 +100,30 @@ class DeepAR(NNModel):
             patience (int): Number of epochs without without improvement to stop.
         """
         from tensorflow.python.framework.ops import disable_eager_execution
-
         disable_eager_execution()
-        from tensorflow.compat.v1.experimental import output_all_intermediates
 
+        from tensorflow.compat.v1.experimental import output_all_intermediates
         output_all_intermediates(True)
 
         if not epochs:
             epochs = self.epochs
         callback = callbacks.EarlyStopping(monitor="loss", patience=patience)
         self.keras_model.fit(
-            self.ts_obj.train, epochs=epochs, verbose=verbose, callbacks=[callback],
+            self.X_train, self.y_train, epochs=epochs, verbose=verbose, callbacks=[callback],
         )
         if verbose:
-            logger.debug("Model was successfully trained")
-        self.get_intermediate = K.function(
-            inputs=[self.keras_model.input],
-            outputs=self.keras_model.get_layer(self._output_layer_name).output,
-        )
+            LOGGER.debug("Model was successfully trained")
 
     def build_model(self):
         input_shape, inputs, theta = self.nn_structure()
-        model = Model(inputs, theta[0])
-        model.compile(loss=self.loss(theta[1]), optimizer=self.optimizer)
-        print(model.summary())
-        self.keras_model = model
+        self.keras_model = Model(inputs, theta[0])
+        LOGGER.info(self.keras_model.summary())
+        self.gaussian_layer = Model(
+            self.keras_model.input,
+            self.keras_model.get_layer(self._output_layer_name).output,
+        )
+        self.keras_model.compile(loss=self.loss(theta[1]), optimizer=self.optimizer)
+        self.gaussian_layer.compile(loss="mse", optimizer="adam")
 
     def instantiate_and_fit(self, do_fit: bool = True, **fit_kwargs):
         """Compile and train model."""
@@ -123,17 +136,18 @@ class DeepAR(NNModel):
         return self.keras_model
 
     def predict_theta_from_input(self, input_list):
-        """
+        """Predict from GaussianLayer.
+
         This function takes an input of size equal to the n_steps specified in 'Input' when building the
-        network
+        network.
         :param input_list:
         :return: [[]], a list of list. E.g. when using Gaussian layer this returns a list of two list,
         corresponding to [[mu_values], [sigma_values]]
         """
-        if not self.get_intermediate:
-            raise ValueError("TF model must be trained first!")
+        if not self.keras_model.history:
+            raise ValueError("Model must be trained first!")
 
-        return self.get_intermediate(input_list)
+        return self.gaussian_layer.predict(input_list)
 
     def get_sample_prediction(self, sample_df: pd.DataFrame):
         self.ts_obj.test_df = sample_df
@@ -160,24 +174,12 @@ if __name__ == "__main__":
 
     output_all_intermediates(True)
 
-    import requests
-
-    resp = requests.get(
-        "https://github.com/camroach87/gefcom2017data/raw/master/data/gefcom.rda",
-        allow_redirects=True,
-    )
-    open("gefcom.rda", "wb").write(resp.content)
-    import pyreadr
-
-    result = pyreadr.read_r("gefcom.rda")
-    df = result["gefcom"].pivot(index="ts", columns="zone", values="demand")
-    from sklearn.preprocessing import StandardScaler
-    import pandas as pd
-
-    train_df = pd.DataFrame(data=StandardScaler().fit_transform(df), columns=df.columns)
+    from deepar.dataset.utils import get_energy_demand
+    train_df = get_energy_demand()
 
     ts_window = WindowGenerator(
-        input_width=10, label_width=10, shift=10, train_df=train_df
+        input_width=100, label_width=10, shift=10, train_df=train_df
     )
     dp_model = DeepAR(ts_window, epochs=50)
     dp_model.instantiate_and_fit(verbose=1, epochs=500)
+    print()
