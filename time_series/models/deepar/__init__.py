@@ -46,7 +46,7 @@ class DeepAR(NNModel):
         self.epochs = epochs
         self.loss = loss
         self.optimizer = optimizer
-        self.keras_model: Optional[Model] = None
+        self.model: Optional[Model] = None
         self.nn_structure = partial(
             DeepAR.basic_structure, n_steps=data.n_steps, dimensions=data.dimensions
         )
@@ -97,7 +97,7 @@ class DeepAR(NNModel):
 
         if not epochs:
             epochs = self.epochs
-        self.keras_model.fit(
+        self.model.fit(
             self.data.X_train,
             self.data.y_train,
             epochs=epochs,
@@ -109,13 +109,13 @@ class DeepAR(NNModel):
 
     def build_model(self):
         input_shape, inputs, theta = self.nn_structure()
-        self.keras_model = Model(inputs, theta[0])
-        LOGGER.info(self.keras_model.summary())
+        self.model = Model(inputs, theta[0])
+        LOGGER.info(self.model.summary())
         self.gaussian_layer = Model(
-            self.keras_model.input,
-            self.keras_model.get_layer(self._output_layer_name).output,
+            self.model.input,
+            self.model.get_layer(self._output_layer_name).output,
         )
-        self.keras_model.compile(
+        self.model.compile(
             loss=self.loss(theta[1]), optimizer=self.optimizer, metrics=self.metrics
         )
         self.gaussian_layer.compile(loss="mse", optimizer="adam")
@@ -126,10 +126,6 @@ class DeepAR(NNModel):
         if do_fit:
             self.fit(**fit_kwargs)
 
-    @property
-    def model(self):
-        return self.keras_model
-
     def predict_theta_from_input(self, input_list):
         """Predict from GaussianLayer.
 
@@ -139,7 +135,7 @@ class DeepAR(NNModel):
         :return: [[]], a list of list. E.g. when using Gaussian layer this returns a list of two list,
         corresponding to [[mu_values], [sigma_values]]
         """
-        if not self.keras_model.history:
+        if not self.model.history:
             raise ValueError("Model must be trained first!")
 
         return self.gaussian_layer.predict(input_list)
