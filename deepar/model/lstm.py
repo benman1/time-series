@@ -177,9 +177,5 @@ if __name__ == "__main__":
     from deepar.dataset.utils import get_energy_demand
     train_df = get_energy_demand()
 
-    ts_window = WindowGenerator(
-        input_width=100, label_width=10, shift=10, train_df=train_df
-    )
-    dp_model = DeepAR(ts_window, epochs=50)
-    dp_model.instantiate_and_fit(verbose=1, epochs=500)
-    print()
+    dp_model = DeepAR(train_df, epochs=10)
+    dp_model.instantiate_and_fit(verbose=1, epochs=1, patience=1)
