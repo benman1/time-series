@@ -78,7 +78,6 @@ class DeepAR(NNModel):
         self,
         epochs: Optional[int] = None,
         verbose: Union[str, int] = "auto",
-        patience: int = 10,
     ):
         """Fit models.
 
@@ -89,7 +88,6 @@ class DeepAR(NNModel):
                 defined, take self.epochs. Please the early stopping (patience).
             verbose (Union[str, int]): passed to keras.fit(). Can be
                 "auto", 0, or 1.
-            patience (int): Number of epochs without without improvement to stop.
         """
         from tensorflow.python.framework.ops import disable_eager_execution
 
@@ -177,4 +175,4 @@ if __name__ == "__main__":
     train_df = get_energy_demand()
 
     dp_model = DeepAR(train_df, epochs=10)
-    dp_model.instantiate_and_fit(verbose=1, epochs=1, patience=1)
+    dp_model.instantiate_and_fit(verbose=1, epochs=1)
