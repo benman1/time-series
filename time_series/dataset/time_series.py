@@ -213,7 +213,7 @@ def sample_to_input(
         lag (int): the number of previous steps to use as predictors.
         two_dim (bool): whether to reshape as 2D (default 3D)
     Output:
-        time x columns x lag or time x (columns*lag)
+        time x columns x lag or (for 2D) time x (columns*lag)
     """
     in_dim = sample.shape[1]
     # drop rows with unknown values both at beginning and end
@@ -246,10 +246,11 @@ class TrainingDataSet:
     X_test: np_types.ArrayLike
     y_test: np_types.ArrayLike
 
-    def __init__(self, df: pd.DataFrame, lag: int = 10, train_split: float = 0.8):
+    def __init__(self, df: pd.DataFrame, lag: int = 10, train_split: float = 0.8, two_dim: bool = False):
         self.lag = lag
         self.train_split = train_split
-        lagged = sample_to_input(df, lag)
+        self.two_dim = two_dim
+        lagged = sample_to_input(df, lag, two_dim=two_dim)
         y = np.roll(lagged, shift=-lag, axis=0)
         split_point = int(len(df) * train_split)  # points for training
         self.X_train, self.X_test = (
@@ -264,7 +265,7 @@ class TrainingDataSet:
     @property
     def n_steps(self):
         """How many steps (lags) to use as predictors."""
-        return self.y_train.shape[2]
+        return self.y_train.shape[2] if not self.two_dim else 1
 
     @property
     def dimensions(self):
