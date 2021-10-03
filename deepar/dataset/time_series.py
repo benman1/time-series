@@ -199,7 +199,7 @@ class MockTs(TimeSeries):
 
 
 def sample_to_input(sample, lag: int):
-    """Reshape a time-series to be suitable for the model.
+    """Reshape a time-series to be suitable for the models.
 
     Arguments:
         Sample (pd.DataFrame): time x value columns.
