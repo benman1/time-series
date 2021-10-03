@@ -6,8 +6,11 @@ import tensorflow as tf
 class NNModel(ABC):
     """Model class."""
 
+    metrics = ["mean_absolute_percentage_error", "mae", "mse"]
     callbacks = [
-        tf.keras.callbacks.EarlyStopping(patience=10, restore_best_weights=True)
+        tf.keras.callbacks.EarlyStopping(
+            monitor="loss", patience=10, restore_best_weights=True
+        )
     ]
 
     def __init__(self):

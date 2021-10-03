@@ -75,9 +75,7 @@ class DeepAR(NNModel):
         return input_shape, inputs, [loc, scale]
 
     def fit(
-        self,
-        epochs: Optional[int] = None,
-        verbose: Union[str, int] = "auto",
+        self, epochs: Optional[int] = None, verbose: Union[str, int] = "auto",
     ):
         """Fit models.
 
@@ -117,7 +115,9 @@ class DeepAR(NNModel):
             self.keras_model.input,
             self.keras_model.get_layer(self._output_layer_name).output,
         )
-        self.keras_model.compile(loss=self.loss(theta[1]), optimizer=self.optimizer)
+        self.keras_model.compile(
+            loss=self.loss(theta[1]), optimizer=self.optimizer, metrics=self.metrics
+        )
         self.gaussian_layer.compile(loss="mse", optimizer="adam")
 
     def instantiate_and_fit(self, do_fit: bool = True, **fit_kwargs):
