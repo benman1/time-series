@@ -5,6 +5,7 @@ import logging
 from typing import Optional, Sequence
 
 import numpy as np
+from numpy import typing as np_types
 import pandas as pd
 import tensorflow as tf
 from statsmodels.tsa.tsatools import lagmat
@@ -204,7 +205,7 @@ class MockTs(TimeSeries):
 
 def sample_to_input(
     sample: pd.DataFrame, lag: int, two_dim: bool = False
-) -> np.typing.ArrayLike:
+) -> np_types.ArrayLike:
     """Reshape a time-series to be suitable for the models.
 
     Arguments:
@@ -240,10 +241,10 @@ class TrainingDataSet:
          lag, train_split, X_train, y_train, X_test, y_test.
     """
 
-    X_train: np.typing.ArrayLike
-    y_train: np.typing.ArrayLike
-    X_test: np.typing.ArrayLike
-    y_test: np.typing.ArrayLike
+    X_train: np_types.ArrayLike
+    y_train: np_types.ArrayLike
+    X_test: np_types.ArrayLike
+    y_test: np_types.ArrayLike
 
     def __init__(self, df: pd.DataFrame, lag: int = 10, train_split: float = 0.8):
         self.lag = lag
