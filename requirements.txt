@@ -1,7 +1,9 @@
 numpy
 pandas
-scipy
 tensorflow
-seaborn
 pytest
-keras
+requests
+pyreadr
+scikit-learn
+statsmodels
+fastcache
