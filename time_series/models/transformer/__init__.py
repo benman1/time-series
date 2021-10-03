@@ -21,9 +21,11 @@ class Transformer(NNModel):
 
     def __init__(
         self, data: TrainingDataSet,
+        regression: bool = True
     ):
         self.data = data
         self.model: Optional[Model] = None
+        self.regression = regression
 
     def fit(self, **fit_kwargs):
         self.model.fit(
@@ -76,23 +78,27 @@ class Transformer(NNModel):
         for dim in mlp_units:
             x = layers.Dense(dim, activation="relu")(x)
             x = layers.Dropout(mlp_dropout)(x)
-        outputs = layers.Dense(self.data.n_classes, activation="softmax")(x)
+        outputs_d = layers.Dense(
+            self.data.dimensions * self.data.n_steps if self.regression else self.data.n_classes,
+            activation="softmax"
+        )(x)
+        outputs = tf.reshape(outputs_d, (-1, self.data.dimensions, self.data.lag))
         return inputs, outputs
 
     def build_model(self):
         inputs, outputs = self.nn_structure(
             head_size=256,
-            num_heads=4,
+            num_heads=1,
             ff_dim=4,
-            num_transformer_blocks=4,
+            num_transformer_blocks=1,
             mlp_units=[128],
             mlp_dropout=0.4,
             dropout=0.25,
         )
         self.model = Model(inputs, outputs)
         self.model.compile(
-            loss="sparse_categorical_crossentropy",
+            loss="mse" if self.regression else "sparse_categorical_crossentropy",
             optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
-            metrics=["sparse_categorical_accuracy"],
+            metrics=self.metrics,
         )
         print(self.model.summary())

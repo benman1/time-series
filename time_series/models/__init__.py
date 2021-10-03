@@ -27,7 +27,3 @@ class NNModel(ABC):
         from tensorflow.keras.models import load_model
 
         return load_model(filepath, custom_objects, compile)
-
-    @property
-    def model(self):
-        raise AttributeError("Not implemented!")
