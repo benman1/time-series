@@ -1,6 +1,6 @@
 import pandas as pd
 import unittest
-from deepar.dataset.time_series import TimeSeries
+from time_series.dataset.time_series import TimeSeries
 
 
 class TestRecurrentTs(unittest.TestCase):

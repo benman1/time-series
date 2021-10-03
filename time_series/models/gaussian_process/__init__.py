@@ -5,8 +5,8 @@ from typing import Optional
 import gpflow
 from gpflow.utilities import print_summary
 
-from deepar.dataset.time_series import TrainingDataSet
-from deepar.models import NNModel
+from time_series.dataset.time_series import TrainingDataSet
+from time_series.models import NNModel
 
 
 LOGGER = logging.getLogger(__name__)

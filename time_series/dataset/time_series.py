@@ -9,7 +9,7 @@ import pandas as pd
 import tensorflow as tf
 from statsmodels.tsa.tsatools import lagmat
 
-from deepar.dataset import Dataset
+from time_series.dataset import Dataset
 
 
 LOGGER = logging.getLogger(__file__)

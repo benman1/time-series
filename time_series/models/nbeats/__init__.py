@@ -11,8 +11,8 @@ from tensorflow.keras.layers import Concatenate
 from tensorflow.keras.layers import Input, Dense, Lambda, Subtract, Add, Reshape
 from tensorflow.keras.models import Model
 
-from deepar.dataset.time_series import TrainingDataSet
-from deepar.models import NNModel
+from time_series.dataset.time_series import TrainingDataSet
+from time_series.models import NNModel
 
 
 GENERIC_BLOCK = "generic"

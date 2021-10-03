@@ -14,10 +14,10 @@ import pandas as pd
 from tensorflow.keras.layers import Dense, Input, LSTM
 from tensorflow.keras.models import Model
 
-from deepar.dataset.time_series import TrainingDataSet
-from deepar.models.deepar.loss import gaussian_likelihood
-from deepar.models import NNModel
-from deepar.models.deepar.layers import GaussianLayer
+from time_series.dataset.time_series import TrainingDataSet
+from time_series.models.deepar.loss import gaussian_likelihood
+from time_series.models import NNModel
+from time_series.models.deepar.layers import GaussianLayer
 
 
 LOGGER = logging.getLogger(__name__)
@@ -172,7 +172,7 @@ if __name__ == "__main__":
 
     output_all_intermediates(True)
 
-    from deepar.dataset.utils import get_energy_demand
+    from time_series.dataset.utils import get_energy_demand
 
     train_df = get_energy_demand()
 

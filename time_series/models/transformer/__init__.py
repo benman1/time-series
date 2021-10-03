@@ -7,8 +7,8 @@ from typing import Optional, Sequence
 import tensorflow as tf
 from tensorflow.keras import Model
 
-from deepar.dataset.time_series import TrainingDataSet
-from deepar.models import NNModel
+from time_series.dataset.time_series import TrainingDataSet
+from time_series.models import NNModel
 from tensorflow.keras import layers
 
 
