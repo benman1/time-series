@@ -1,3 +1,4 @@
+import dataclasses
 import datetime
 import logging
 from typing import Optional, Sequence
@@ -204,7 +205,7 @@ def sample_to_input(sample, lag: int):
     """Reshape a time-series to be suitable for the models.
 
     Arguments:
-        Sample (pd.DataFrame): time x value columns.
+        sample (pd.DataFrame): time x value columns.
         lag (int): the number of previous steps to use as predictors.
     Output:
         time x columns x n_steps
@@ -220,6 +221,7 @@ def sample_to_input(sample, lag: int):
     )
 
 
+@dataclasses.dataclass
 class TrainingDataSet:
     """This is in place for a generator.
 
@@ -228,6 +230,11 @@ class TrainingDataSet:
     Attributes:
          lag, train_split, X_train, y_train, X_test, y_test.
     """
+
+    X_train: np.typing.ArrayLike
+    y_train: np.typing.ArrayLike
+    X_test: np.typing.ArrayLike
+    y_test: np.typing.ArrayLike
 
     def __init__(self, df: pd.DataFrame, lag: int = 10, train_split: float = 0.8):
         self.lag = lag
