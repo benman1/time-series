@@ -2,11 +2,11 @@
 Based on: Timeseries classification with a Transformer model
 By Theodoros Ntakouris, https://github.com/ntakouris
 """
-from typing import Optional
+from typing import Optional, Sequence
 
-import numpy as np
-from keras import Model
+from tensorflow.keras import Model
 
+from deepar.dataset.time_series import TrainingDataSet
 from deepar.models import NNModel
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -20,19 +20,15 @@ class Transformer(NNModel):
     """
 
     def __init__(
-        self, X_train: np.typing.ArrayLike, y_train: np.typing.ArrayLike,
+        self, data: TrainingDataSet,
     ):
-        self.X_train = X_train
-        self.y_train = y_train
-        self.n_classes = len(np.unique(y_train))
-        self.input_shape = X_train.shape[1:]
+        self.data = data
         self.model: Optional[Model] = None
 
     def fit(self, **fit_kwargs):
-        callbacks = [
-            keras.callbacks.EarlyStopping(patience=10, restore_best_weights=True)
-        ]
-        self.model.fit(self.X_train, self.y_train, callbacks=callbacks, **fit_kwargs)
+        self.model.fit(
+            self.data.X_train, self.data.y_train, callbacks=self.callbacks, **fit_kwargs
+        )
 
     def instantiate_and_fit(self, **fit_kwargs):
         """Create model and fit."""
@@ -40,7 +36,9 @@ class Transformer(NNModel):
         self.fit(**fit_kwargs)
 
     @staticmethod
-    def transformer_encoder(inputs, head_size, num_heads, ff_dim, dropout=0):
+    def transformer_encoder(
+        inputs, head_size: int, num_heads: int, ff_dim: int, dropout: float = 0.0
+    ):
         """Encoder: Attention and Normalization and Feed-Forward."""
         # 1. Attention and Normalization:
         x = layers.MultiHeadAttention(
@@ -59,15 +57,15 @@ class Transformer(NNModel):
 
     def nn_structure(
         self,
-        head_size,
-        num_heads,
-        ff_dim,
-        num_transformer_blocks,
-        mlp_units,
-        dropout=0,
-        mlp_dropout=0,
+        head_size: int,
+        num_heads: int,
+        ff_dim: int,
+        num_transformer_blocks: int,
+        mlp_units: Sequence[int],
+        dropout: float = 0.0,
+        mlp_dropout: float = 0.0,
     ):
-        inputs = keras.Input(shape=self.input_shape)
+        inputs = keras.Input(shape=self.data.input_shape)
         x = inputs
         for _ in range(num_transformer_blocks):
             x = Transformer.transformer_encoder(
@@ -78,7 +76,7 @@ class Transformer(NNModel):
         for dim in mlp_units:
             x = layers.Dense(dim, activation="relu")(x)
             x = layers.Dropout(mlp_dropout)(x)
-        outputs = layers.Dense(self.n_classes, activation="softmax")(x)
+        outputs = layers.Dense(self.data.n_classes, activation="softmax")(x)
         return inputs, outputs
 
     def build_model(self):

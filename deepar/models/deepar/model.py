@@ -1,3 +1,8 @@
+"""DeepAR model.
+
+Based on https://github.com/arrigonialberto86/deepar
+By Alberto Arrigoni.
+"""
 from functools import partial
 import logging
 from typing import Optional, Union
@@ -8,9 +13,8 @@ import pandas as pd
 
 from tensorflow.keras.layers import Dense, Input, LSTM
 from tensorflow.keras.models import Model
-from tensorflow.keras import callbacks
 
-from deepar.dataset.time_series import sample_to_input
+from deepar.dataset.time_series import TrainingDataSet
 from deepar.models.deepar.loss import gaussian_likelihood
 from deepar.models import NNModel
 from deepar.models.deepar.layers import GaussianLayer
@@ -20,9 +24,11 @@ LOGGER = logging.getLogger(__name__)
 
 
 class DeepAR(NNModel):
+    """DeepAR model."""
+
     def __init__(
         self,
-        df: pd.DataFrame,
+        data: TrainingDataSet,
         epochs=100,
         loss=gaussian_likelihood,
         optimizer: str = "adam",
@@ -35,29 +41,14 @@ class DeepAR(NNModel):
             loss: a loss function.
             optimizer: which optimizer to use.
         """
-        # we could be moving a window generator here:
-        # self.ts_obj = WindowGenerator(input_width=10, label_width=10, shift=8, train_df=df)
-        MAXLAG = 10
-        lagged = sample_to_input(df, MAXLAG)
-        self.y = np.roll(lagged, shift=-MAXLAG, axis=0)
-        self.split_point = len(df) // 10 * 8  # 80% of points for training
-        self.X_train, self.X_test = (
-            lagged[: self.split_point, ...],
-            lagged[-self.split_point :, ...],
-        )
-        self.y_train, self.y_test = (
-            self.y[: self.split_point, ...],
-            self.y[-self.split_point :, ...],
-        )
+        self.data = data
         self.inputs, self.z_sample = None, None
         self.epochs = epochs
         self.loss = loss
         self.optimizer = optimizer
         self.keras_model: Optional[Model] = None
         self.nn_structure = partial(
-            DeepAR.basic_structure,
-            n_steps=self.y.shape[2],
-            dimensions=self.X_train.shape[1],
+            DeepAR.basic_structure, n_steps=data.n_steps, dimensions=data.dimensions
         )
         self._output_layer_name = "main_output"
         self.gaussian_layer: Optional[Model] = None
@@ -78,7 +69,8 @@ class DeepAR(NNModel):
             return_sequences=True,
             dropout=0.1,
         )(inputs)
-        x = Dense(4, activation="relu")(x)  # int(4 * (1 + math.log(dimensions))),
+        # int(4 * (1 + math.log(dimensions))),
+        x = Dense(4, activation="relu")(x)
         loc, scale = GaussianLayer(dimensions, name="main_output")(x)
         return input_shape, inputs, [loc, scale]
 
@@ -109,13 +101,12 @@ class DeepAR(NNModel):
 
         if not epochs:
             epochs = self.epochs
-        callback = callbacks.EarlyStopping(monitor="loss", patience=patience)
         self.keras_model.fit(
-            self.X_train,
-            self.y_train,
+            self.data.X_train,
+            self.data.y_train,
             epochs=epochs,
             verbose=verbose,
-            callbacks=[callback],
+            callbacks=self.callbacks,
         )
         if verbose:
             LOGGER.debug("Model was successfully trained")

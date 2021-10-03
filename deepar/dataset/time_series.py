@@ -218,3 +218,50 @@ def sample_to_input(sample, lag: int):
         ],
         axis=1,
     )
+
+
+class TrainingDataSet:
+    """This is in place for a generator.
+
+    Create lags and split between train and test.
+    Attributes:
+         lag, train_split, X_train, y_train, X_test, y_test.
+    """
+
+    def __init__(self, df: pd.DataFrame, lag: int = 10, train_split: float = 0.8):
+        self.lag = lag
+        self.train_split = train_split
+        lagged = sample_to_input(df, lag)
+        y = np.roll(lagged, shift=-lag, axis=0)
+        split_point = int(len(df) / 100 * train_split)  # points for training
+        self.X_train, self.X_test = (
+            lagged[:split_point, ...],
+            lagged[-split_point:, ...],
+        )
+        self.y_train, self.y_test = (
+            y[:split_point, ...],
+            y[-split_point:, ...],
+        )
+
+    @property
+    def n_steps(self):
+        """How many steps (lags) to use as predictors."""
+        return self.y_train.shape[2]
+
+    @property
+    def dimensions(self):
+        """Number of dimensions."""
+        return self.X_train.shape[1]
+
+    @property
+    def n_classes(self):
+        """Number of classes.
+
+        This is appropriate for classification tasks.
+        """
+        return len(np.unique(self.y_train))
+
+    @property
+    def input_shape(self):
+        """The input shape for a model."""
+        return self.X_train.shape[1:]
