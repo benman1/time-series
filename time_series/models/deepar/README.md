@@ -11,7 +11,7 @@ from tensorflow.python.framework.ops import disable_eager_execution
 disable_eager_execution()
 
 from time_series.dataset.time_series import MockTs
-from time_series.models.deepar.model import DeepAR
+from time_series.models.deepar import DeepAR
 
 ts = MockTs(dimensions=1)  # you can change this for multivariate time-series!
 dp_model = DeepAR(ts, epochs=50)
