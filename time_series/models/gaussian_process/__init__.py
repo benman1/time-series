@@ -18,7 +18,13 @@ class GaussianProcess(NNModel):
     Data should come in this shape (we'll have to reshape our data to 2D):
     X_train: (instances x variables) -> y_train: (instances x values)
     """
-    def __init__(self, data: TrainingDataSet, kernel: gpflow.kernels.Kernel = gpflow.kernels.Matern52(), meanf: Optional[gpflow.mean_functions.MeanFunction] = None):
+
+    def __init__(
+        self,
+        data: TrainingDataSet,
+        kernel: gpflow.kernels.Kernel = gpflow.kernels.Matern52(),
+        meanf: Optional[gpflow.mean_functions.MeanFunction] = None,
+    ):
         self.data = data
         self.kernel = kernel
         print_summary(self.kernel)
@@ -30,14 +36,24 @@ class GaussianProcess(NNModel):
         """Build model."""
         self.model = gpflow.models.GPR(
             data=(self.data.X_train, self.data.y_train),
-            kernel=self.kernel, mean_function=self.meanf
+            kernel=self.kernel,
+            mean_function=self.meanf,
         )
-        LOGGER.info(print_summary(self.model))
-
-    def fit(self):
-        """Fit the model."""
-        _ = self.opt.minimize(self.model.training_loss, self.model.trainable_variables, options=dict(maxiter=100))
         print_summary(self.model)
+
+    def fit(self, **fit_kwargs):
+        """Fit the model."""
+        _ = self.opt.minimize(
+            self.model.training_loss,
+            self.model.trainable_variables,
+            options=fit_kwargs,
+        )
+        print_summary(self.model)
+
+    def instantiate_and_fit(self, **fit_kwargs):
+        """Create model and fit."""
+        self.build_model()
+        self.fit(**fit_kwargs)
 
     def predict(self, X_test):
         """Return predictions for new data."""
