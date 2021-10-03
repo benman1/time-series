@@ -28,15 +28,6 @@ class NNModel(ABC):
 
         return load_model(filepath, custom_objects, compile)
 
-    def __getattr__(self, name):
-        """Delegate pattern.
-
-        After https://github.com/faif/python-patterns:
-        * model.predict() instead of model.n_beats.predict()
-        * same for fit(), train_on_batch()
-        """
-        try:
-            return self.__getattribute__(name)
-        except AttributeError:
-            pass
-        return getattr(self.models[self._FORECAST], name, None)
+    @property
+    def model(self):
+        raise AttributeError("Not implemented!")

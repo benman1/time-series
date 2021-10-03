@@ -3,6 +3,7 @@
 Based on Philippe Rémy's implementation at https://github.com/philipperemy/n-beats.
 Paper: NBEATS: Neural basis expansion analysis for interpretable time series forecasting
 """
+import logging
 from typing import Dict, Optional
 
 import numpy as np
@@ -14,6 +15,8 @@ from tensorflow.keras.models import Model
 from time_series.dataset.time_series import TrainingDataSet
 from time_series.models import NNModel
 
+
+LOGGER = logging.getLogger(__name__)
 
 GENERIC_BLOCK = "generic"
 TREND_BLOCK = "trend"
@@ -62,12 +65,12 @@ class NBeatsNet(NNModel):
     We could be moving a window generator here:
     self.ts_obj = WindowGenerator(input_width=10, label_width=10, shift=8, train_df=df)
     """
+    cast_type: str = _FORECAST
 
     def __init__(
         self,
         data: TrainingDataSet,
         backcast_length=10,
-        forecast_length=2,
         stack_types=(TREND_BLOCK, SEASONALITY_BLOCK),
         nb_blocks_per_stack=3,
         thetas_dim=(4, 8),
@@ -82,21 +85,19 @@ class NBeatsNet(NNModel):
         self.units = hidden_layer_units
         self.share_weights_in_stack = share_weights_in_stack
         self.backcast_length = backcast_length
-        self.forecast_length = forecast_length
         self.input_shape = (self.backcast_length, self.data.dimensions)
         self.exo_shape = (self.backcast_length, self.data.exo_dim)
-        self.output_shape = (self.forecast_length, self.data.dimensions)
+        self.output_shape = (self.data.n_steps, self.data.dimensions)
         self.weights = {}
         self.nb_harmonics = nb_harmonics
         assert len(self.stack_types) == len(self.thetas_dim)
         self.models: Optional[Dict[str, Model]] = None
-        self.cast_type: str = self._FORECAST
 
     def net_structure(self):
         """Build the network structure."""
         x = Input(shape=self.input_shape, name="input_variable")
         x_ = {}
-        for k in range(self.dimensions):
+        for k in range(self.data.dimensions):
             x_[k] = Lambda(lambda z: z[..., k])(x)
         e_ = {}
         if self.has_exog():
@@ -114,29 +115,29 @@ class NBeatsNet(NNModel):
                 backcast, forecast = self.create_block(
                     x_, e_, stack_id, block_id, stack_type, nb_poly
                 )
-                for k in range(self.dimensions):
+                for k in range(self.data.dimensions):
                     x_[k] = Subtract()([x_[k], backcast[k]])
                     if stack_id == 0 and block_id == 0:
                         y_[k] = forecast[k]
                     else:
                         y_[k] = Add()([y_[k], forecast[k]])
 
-        for k in range(self.dimensions):
-            y_[k] = Reshape(target_shape=(self.forecast_length, 1))(y_[k])
+        for k in range(self.data.dimensions):
+            y_[k] = Reshape(target_shape=(self.data.n_steps, 1))(y_[k])
             x_[k] = Reshape(target_shape=(self.backcast_length, 1))(x_[k])
-        if self.dimensions > 1:
-            y_ = Concatenate()([y_[ll] for ll in range(self.dimensions)])
-            x_ = Concatenate()([x_[ll] for ll in range(self.dimensions)])
+        if self.data.dimensions > 1:
+            y_ = Concatenate()([y_[ll] for ll in range(self.data.dimensions)])
+            x_ = Concatenate()([x_[ll] for ll in range(self.data.dimensions)])
         else:
             y_ = y_[0]
             x_ = x_[0]
 
         if self.has_exog():
-            n_beats_forecast = Model([x, e], y_, name=self._FORECAST)
-            n_beats_backcast = Model([x, e], x_, name=self._BACKCAST)
+            n_beats_forecast = Model([x, e], y_, name=_FORECAST)
+            n_beats_backcast = Model([x, e], x_, name=_BACKCAST)
         else:
-            n_beats_forecast = Model(x, y_, name=self._FORECAST)
-            n_beats_backcast = Model(x, x_, name=self._BACKCAST)
+            n_beats_forecast = Model(x, y_, name=_FORECAST)
+            n_beats_backcast = Model(x, x_, name=_BACKCAST)
         return n_beats_forecast, n_beats_backcast
 
     def build_model(self):
@@ -145,13 +146,13 @@ class NBeatsNet(NNModel):
         self.models = {
             model.name: model for model in [n_beats_backcast, n_beats_forecast]
         }
-        self.compile(loss="mae", optimizer="adam")
-        print(self.summary())
+        self.models[_FORECAST].compile(loss="mae", optimizer="adam")
+        # LOGGER.info(self.models[_FORECAST].summary())
 
     def has_exog(self):
         # exo/exog is short for 'exogenous variable', i.e. any input
         # features other than the target time-series itself.
-        return self.exo_dim > 0
+        return self.data.exo_dim > 0
 
     def _restore(self, layer_with_weights, stack_id):
         """Mechanism to restore weights when block share the same weights.
@@ -200,7 +201,7 @@ class NBeatsNet(NNModel):
                 Dense(self.backcast_length, activation="linear", name=n("backcast"))
             )
             forecast = reg(
-                Dense(self.forecast_length, activation="linear", name=n("forecast"))
+                Dense(self.data.n_steps, activation="linear", name=n("forecast"))
             )
         elif stack_type == "trend":
             theta_f = theta_b = reg(
@@ -211,7 +212,7 @@ class NBeatsNet(NNModel):
                 arguments={
                     "is_forecast": False,
                     "backcast_length": self.backcast_length,
-                    "forecast_length": self.forecast_length,
+                    "forecast_length": self.data.n_steps,
                 },
             )
             forecast = Lambda(
@@ -219,7 +220,7 @@ class NBeatsNet(NNModel):
                 arguments={
                     "is_forecast": True,
                     "backcast_length": self.backcast_length,
-                    "forecast_length": self.forecast_length,
+                    "forecast_length": self.data.n_steps,
                 },
             )
         else:  # 'seasonality'
@@ -235,7 +236,7 @@ class NBeatsNet(NNModel):
             else:
                 theta_b = reg(
                     Dense(
-                        self.forecast_length,
+                        self.data.n_steps,
                         activation="linear",
                         use_bias=False,
                         name=n("theta_b"),
@@ -243,7 +244,7 @@ class NBeatsNet(NNModel):
                 )
             theta_f = reg(
                 Dense(
-                    self.forecast_length,
+                    self.data.n_steps,
                     activation="linear",
                     use_bias=False,
                     name=n("theta_f"),
@@ -254,7 +255,7 @@ class NBeatsNet(NNModel):
                 arguments={
                     "is_forecast": False,
                     "backcast_length": self.backcast_length,
-                    "forecast_length": self.forecast_length,
+                    "forecast_length": self.data.n_steps,
                 },
             )
             forecast = Lambda(
@@ -262,10 +263,10 @@ class NBeatsNet(NNModel):
                 arguments={
                     "is_forecast": True,
                     "backcast_length": self.backcast_length,
-                    "forecast_length": self.forecast_length,
+                    "forecast_length": self.data.n_steps,
                 },
             )
-        for k in range(self.dimensions):
+        for k in range(self.data.dimensions):
             if self.has_exog():
                 d0 = Concatenate()([x[k]] + [e[ll] for ll in range(self.exo_dim)])
             else:
@@ -283,31 +284,16 @@ class NBeatsNet(NNModel):
 
     def fit(self, **fit_kwargs):
         """Fit model."""
-        self.models[self._FORECAST].fit(
+        self.models[_FORECAST].fit(
             self.data.X_train, self.data.y_train, callbacks=self.callbacks, **fit_kwargs
         )
 
-    def instantiate_and_fit(self, **kwargs):
+    def instantiate_and_fit(self, **fit_kwargs):
         self.build_model()
+        LOGGER.info("Model built!")
+        self.fit(**fit_kwargs)
 
-    def __getattr__(self, name):
-        """Delegate pattern."""
-        attr = getattr(self.models[self._FORECAST], name, None)
-        if attr is None:
-            return getattr(self, name)
-
-        if not callable(attr):
-            return attr
-
-        def wrapper(*args, **kwargs):
-            cast_type = self._FORECAST
-            if (
-                attr.__name__ == "predict"
-                and "return_backcast" in kwargs
-                and kwargs["return_backcast"]
-            ):
-                del kwargs["return_backcast"]
-                cast_type = self._BACKCAST
-            return getattr(self.models[cast_type], attr.__name__)(*args, **kwargs)
-
-        return wrapper
+    @property
+    def model(self):
+        """Get the forecast model."""
+        return self.models[_FORECAST]
