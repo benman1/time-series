@@ -4,12 +4,11 @@ from pip.download import PipSession
 
 
 setup(
-    name="deepar",
-    version="0.0.1",
-    description="DeepAR tensorflow implementation",
-    author="Alberto Arrigoni",
-    author_email="arrigonialberto86@gmail.com",
-    url="https://github.com/arrigonialberto86/deepar/tree/master",
+    name="time-series",
+    version="0.2",
+    description="Time-Series models with keras and Tensorflow",
+    author="Ben Auffarth",
+    url="https://github.com/benman1/time-series/tree/master",
     requires=parse_requirements("requirements.txt", session=PipSession()),
     packages=find_packages(),
 )
