@@ -224,6 +224,7 @@ class TrainingDataSet:
     """This is in place for a generator.
 
     Create lags and split between train and test.
+
     Attributes:
          lag, train_split, X_train, y_train, X_test, y_test.
     """
@@ -265,3 +266,8 @@ class TrainingDataSet:
     def input_shape(self):
         """The input shape for a model."""
         return self.X_train.shape[1:]
+
+    @property
+    def exo_dim(self):
+        """This class doesn't handle exogenous attributes."""
+        return 0
