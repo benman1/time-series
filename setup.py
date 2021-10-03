@@ -1,4 +1,7 @@
 from setuptools import setup, find_packages
+from pip.req import parse_requirements
+from pip.download import PipSession
+
 
 setup(
     name="deepar",
@@ -7,6 +10,6 @@ setup(
     author="Alberto Arrigoni",
     author_email="arrigonialberto86@gmail.com",
     url="https://github.com/arrigonialberto86/deepar/tree/master",
-    requires=["tensorflow", "numpy", "pandas", "keras"],
+    requires=parse_requirements("requirements.txt", session=PipSession()),
     packages=find_packages(),
 )
