@@ -39,7 +39,7 @@ class Transformer(NNModel):
 
     @staticmethod
     def transformer_encoder(
-        inputs, head_size: int, num_heads: int, ff_dim: int, dropout: float = 0.0
+        inputs, head_size: int, num_heads: int, ff_dim: int, dropout: float = 0.0, kernel_size: int = 1
     ):
         """Encoder: Attention and Normalization and Feed-Forward."""
         # 1. Attention and Normalization:
@@ -53,7 +53,7 @@ class Transformer(NNModel):
         # 2. Feed Forward Part:
         x = layers.Conv1D(filters=ff_dim, kernel_size=1, activation="relu")(res)
         x = layers.Dropout(dropout)(x)
-        x = layers.Conv1D(filters=inputs.shape[-1], kernel_size=1)(x)
+        x = layers.Conv1D(filters=inputs.shape[-1], kernel_size=kernel_size)(x)
         x = layers.LayerNormalization(epsilon=1e-6)(x)
         return x + res
 
@@ -66,13 +66,17 @@ class Transformer(NNModel):
         mlp_units: Sequence[int],
         dropout: float = 0.0,
         mlp_dropout: float = 0.0,
+        kernel_size: int = 1,
     ):
         inputs = tf.keras.Input(shape=self.data.input_shape)
         x = inputs
         for _ in range(num_transformer_blocks):
             x = Transformer.transformer_encoder(
-                x, head_size, num_heads, ff_dim, dropout
+                x, head_size, num_heads, ff_dim, dropout, kernel_size
             )
+
+        # conv_layer = tf.keras.layers.Conv1D(64, self.data.dimensions)
+        # x = tf.keras.layers.TimeDistributed(conv_layer)(x)
 
         x = layers.GlobalAveragePooling1D(data_format="channels_first")(x)
         for dim in mlp_units:
@@ -88,17 +92,18 @@ class Transformer(NNModel):
     def build_model(self):
         inputs, outputs = self.nn_structure(
             head_size=256,
-            num_heads=1,
-            ff_dim=4,
+            num_heads=2,
+            ff_dim=self.data.n_steps,
             num_transformer_blocks=1,
-            mlp_units=[128],
+            mlp_units=[256],
             mlp_dropout=0.4,
             dropout=0.25,
+            kernel_size=self.data.n_steps
         )
         self.model = Model(inputs, outputs)
         self.model.compile(
             loss="mse" if self.regression else "sparse_categorical_crossentropy",
-            optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
+            optimizer="adam",
             metrics=self.metrics,
         )
         print(self.model.summary())
