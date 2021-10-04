@@ -1,4 +1,15 @@
 # Time-Series
 
-Tensorflow implementations of Time-Series models including Amazon DeepAR, Gaussian Processes, Transformer, and NBEATS.
+Tensorflow implementations of Time-Series models including these:
+* Amazon DeepAR
+* Gaussian Processes
+* LSTM
+* Transformer, and
+* NBEATS
+
+The `time_series.dataset` package includes utility functions for loading datasets.
+
+Please see the example notebook for usage and training results.
+
+Pull requests welcome!
 
