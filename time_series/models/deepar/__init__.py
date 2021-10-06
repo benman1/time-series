@@ -29,7 +29,6 @@ class DeepAR(NNModel):
     def __init__(
         self,
         data: TrainingDataSet,
-        epochs=100,
         loss=gaussian_likelihood,
         optimizer: str = "adam",
     ):
@@ -37,13 +36,11 @@ class DeepAR(NNModel):
 
         Arguments:
             df (pd.DataFrame): a dataframe of shape time x value columns
-            epochs: how many epochs to train (initially).
             loss: a loss function.
             optimizer: which optimizer to use.
         """
         self.data = data
         self.inputs, self.z_sample = None, None
-        self.epochs = epochs
         self.loss = loss
         self.optimizer = optimizer
         self.model: Optional[Model] = None
@@ -75,37 +72,18 @@ class DeepAR(NNModel):
         return input_shape, inputs, [loc, scale]
 
     def fit(
-        self, epochs: Optional[int] = None, verbose: Union[str, int] = "auto",
+        self, **fit_kwargs,
     ):
         """Fit models.
 
         This is called from instantiate and fit().
-
-        Args:
-            epochs (Optional[int]): number of epochs to train. If nothing
-                defined, take self.epochs. Please the early stopping (patience).
-            verbose (Union[str, int]): passed to keras.fit(). Can be
-                "auto", 0, or 1.
         """
-        from tensorflow.python.framework.ops import disable_eager_execution
-
-        disable_eager_execution()
-
-        from tensorflow.compat.v1.experimental import output_all_intermediates
-
-        output_all_intermediates(True)
-
-        if not epochs:
-            epochs = self.epochs
         self.model.fit(
             self.data.X_train,
             self.data.y_train,
-            epochs=epochs,
-            verbose=verbose,
             callbacks=self.callbacks,
+            **fit_kwargs
         )
-        if verbose:
-            LOGGER.debug("Model was successfully trained")
 
     def build_model(self):
         input_shape, inputs, theta = self.nn_structure()
