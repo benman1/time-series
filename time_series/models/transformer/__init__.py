@@ -86,7 +86,7 @@ class Transformer(NNModel):
             self.data.dimensions * self.data.n_steps if self.regression else self.data.n_classes,
             activation="softmax"
         )(x)
-        outputs = tf.reshape(outputs_d, (-1, self.data.dimensions, self.data.lag))
+        outputs = tf.reshape(outputs_d, (-1, self.data.horizon, self.data.dimensions))
         return inputs, outputs
 
     def build_model(self):
