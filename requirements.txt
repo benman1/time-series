@@ -7,5 +7,6 @@ pyreadr~=0.4.2
 scikit-learn~=0.24.1
 statsmodels~=0.12.2
 fastcache~=1.1.0
-
+scipy~=1.6.2
 gpflow~=2.2.1
+
