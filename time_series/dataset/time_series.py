@@ -213,7 +213,7 @@ def sample_to_input(
         lag (int): the number of previous steps to use as predictors.
         two_dim (bool): whether to reshape as 2D (default 3D)
     Output:
-        time x columns x lag or (for 2D) time x (columns*lag)
+        points x time/lag x columns or (for 2D) time x (columns*lag)
     """
     in_dim = sample.shape[1]
     # drop rows with unknown values both at beginning and end
@@ -223,11 +223,11 @@ def sample_to_input(
         return np.concatenate(
             [
                 np.expand_dims(
-                    lagmat(sample.values[:, i], maxlag=lag, trim="both"), axis=1
+                    lagmat(sample.values[:, i], maxlag=lag, trim="both"), axis=2
                 )
                 for i in range(in_dim)
             ],
-            axis=1,
+            axis=2,
         )
 
 
@@ -265,12 +265,12 @@ class TrainingDataSet:
     @property
     def n_steps(self):
         """How many steps (lags) to use as predictors."""
-        return self.y_train.shape[2] if not self.two_dim else 1
+        return self.X_train.shape[1] if not self.two_dim else 1
 
     @property
     def dimensions(self):
         """Number of dimensions."""
-        return self.X_train.shape[1]
+        return self.X_train.shape[2]
 
     @property
     def n_classes(self):
@@ -289,3 +289,8 @@ class TrainingDataSet:
     def exo_dim(self):
         """This class doesn't handle exogenous attributes."""
         return 0
+
+    @property
+    def horizon(self):
+        """How many steps to forecast to?"""
+        return self.y_train.shape[1] if not self.two_dim else 1
