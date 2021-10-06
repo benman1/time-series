@@ -246,7 +246,13 @@ class TrainingDataSet:
     X_test: np_types.ArrayLike
     y_test: np_types.ArrayLike
 
-    def __init__(self, df: pd.DataFrame, lag: int = 10, train_split: float = 0.8, two_dim: bool = False):
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        lag: int = 10,
+        train_split: float = 0.8,
+        two_dim: bool = False,
+    ):
         self.lag = lag
         self.train_split = train_split
         self.two_dim = two_dim
