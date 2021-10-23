@@ -1,13 +1,13 @@
 """Time-series data classes."""
+from packaging import version
 from dataclasses import dataclass
 import datetime
 import logging
-from typing import Optional, Sequence
 
 import numpy as np
 import pandas as pd
 
-if np.__version__ >= 1.20:
+if version.parse(np.__version__) >= version.parse("1.20.0"):
     from numpy.typing.np_types import ArrayLike
 else:
     from typing import Union
