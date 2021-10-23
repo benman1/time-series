@@ -2,6 +2,7 @@
 Based on: Timeseries classification with a Transformer model
 By Theodoros Ntakouris, https://github.com/ntakouris
 """
+import logging
 from typing import Optional, Sequence
 
 import tensorflow as tf
