@@ -578,11 +578,12 @@ def get_x_y(size=1000):
     return x_train, y_train
 
 
-class TCN_Model(Transformer):
+class TCNModel(Transformer):
     """Temporal Convolutional Neural Model."""
 
     def __init__(self, data: TrainingDataSet):
         super().__init__(data)
+        self.model: Optional[tf.keras.Model] = None
 
     def build_model(self):
         tcn_layer = TCN(input_shape=self.data.input_shape)
