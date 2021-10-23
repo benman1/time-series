@@ -1,7 +1,6 @@
 """Time-series data classes."""
 from packaging import version
 from dataclasses import dataclass
-import datetime
 import logging
 
 import numpy as np
@@ -50,46 +49,6 @@ class TimeSeries(Dataset):
         return self.ds.next()
 
 
-class MockTs(TimeSeries):
-    """This class generates 'mock' time series data."""
-
-    def __init__(self, dimensions: int = 1, batch_size: int = 1, n_steps: int = 10):
-        self.dimensions = dimensions
-        self.batch_size = batch_size
-        self.n_steps = n_steps
-        data = pd.DataFrame(
-            {f"col_{i}": self.generate_time_series() for i in range(self.dimensions)}
-        )
-        self.ds = tf.keras.preprocessing.timeseries_dataset_from_array(
-            data=data,
-            targets=None,
-            sequence_length=self.n_steps,
-            sequence_stride=1,
-            shuffle=True,
-            batch_size=self.batch_size,
-        )
-
-    @staticmethod
-    def generate_time_series(freq: float = 365.2425 * 24 * 60 * 60):
-        date = pd.date_range(
-            start=datetime.date(
-                2016, np.random.randint(1, 12), np.random.randint(1, 29)
-            ),
-            periods=800,
-            freq="D",
-        )
-        return np.random.randint(1, 10000) * (
-            1 + np.sin(date.astype("int64") // 1e9 * (2 * np.pi / freq))
-        )
-
-    def __next__(self):
-        for batch in self.ds:
-            yield batch
-
-    def __iter__(self):
-        return self
-
-
 def sample_to_input(sample: pd.DataFrame, lag: int, two_dim: bool = False) -> ArrayLike:
     """Reshape a time-series to be suitable for the models.
 
@@ -118,7 +77,7 @@ def sample_to_input(sample: pd.DataFrame, lag: int, two_dim: bool = False) -> Ar
 
 @dataclass
 class TrainingDataSet:
-    """This is in place for a generator.
+    """Utility class that can be used for training and testing.
 
     Create lags and split between train and test.
 
@@ -161,7 +120,7 @@ class TrainingDataSet:
     @property
     def dimensions(self):
         """Number of dimensions."""
-        return self.X_train.shape[2]
+        return self.X_train.shape[-1]
 
     @property
     def n_classes(self):
