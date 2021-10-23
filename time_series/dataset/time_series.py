@@ -11,6 +11,7 @@ if np.__version__ >= 1.20:
     from numpy.typing.np_types import ArrayLike
 else:
     from typing import Union
+
     ArrayLike = Union[np.ndarray, pd.Series, pd.DataFrame]
 
 import tensorflow as tf
@@ -89,9 +90,7 @@ class MockTs(TimeSeries):
         return self
 
 
-def sample_to_input(
-    sample: pd.DataFrame, lag: int, two_dim: bool = False
-) -> ArrayLike:
+def sample_to_input(sample: pd.DataFrame, lag: int, two_dim: bool = False) -> ArrayLike:
     """Reshape a time-series to be suitable for the models.
 
     Arguments:
@@ -176,6 +175,11 @@ class TrainingDataSet:
     def input_shape(self):
         """The input shape for a model."""
         return self.X_train.shape[1:]
+
+    @property
+    def output_shape(self):
+        """The input shape for a model."""
+        return self.y_train.shape[1:]
 
     @property
     def exo_dim(self):
