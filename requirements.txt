@@ -1,12 +1,12 @@
-numpy>=1.20.0
+numpy>=1.19.0
 pandas~=1.2.4
-tensorflow~=2.6.0
+tensorflow>2.5.0
 pytest
 requests~=2.25.1
 pyreadr~=0.4.2
 scikit-learn~=0.24.1
 statsmodels~=0.12.2
 fastcache~=1.1.0
-scipy~=1.6.2
 gpflow~=2.2.1
-
+scipy~=1.6.2
+joblib~=1.0.1
