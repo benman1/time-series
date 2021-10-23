@@ -4,6 +4,7 @@ Tensorflow implementations of Time-Series models including these:
 * Amazon DeepAR
 * Gaussian Processes
 * LSTM
+* TCN
 * Transformer, and
 * NBEATS
 
