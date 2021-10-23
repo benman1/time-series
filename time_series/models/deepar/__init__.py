@@ -27,10 +27,7 @@ class DeepAR(NNModel):
     """DeepAR model."""
 
     def __init__(
-        self,
-        data: TrainingDataSet,
-        loss=gaussian_likelihood,
-        optimizer: str = "adam",
+        self, data: TrainingDataSet, loss=gaussian_likelihood, optimizer: str = "adam",
     ):
         """Init.
 
@@ -79,10 +76,7 @@ class DeepAR(NNModel):
         This is called from instantiate and fit().
         """
         self.model.fit(
-            self.data.X_train,
-            self.data.y_train,
-            callbacks=self.callbacks,
-            **fit_kwargs
+            self.data.X_train, self.data.y_train, callbacks=self.callbacks, **fit_kwargs
         )
 
     def build_model(self):
@@ -90,8 +84,7 @@ class DeepAR(NNModel):
         self.model = Model(inputs, theta[0])
         LOGGER.info(self.model.summary())
         self.gaussian_layer = Model(
-            self.model.input,
-            self.model.get_layer(self._output_layer_name).output,
+            self.model.input, self.model.get_layer(self._output_layer_name).output,
         )
         self.model.compile(
             loss=self.loss(theta[1]), optimizer=self.optimizer, metrics=self.metrics

@@ -9,6 +9,7 @@ from time_series.models.transformer import Transformer
 
 class LSTM(Transformer):
     """Forecasting with an LSTM."""
+
     def __init__(self, data: TrainingDataSet, lstm_units: Sequence[int] = (100,)):
         super().__init__(data)
         self.lstm_units = lstm_units
@@ -16,10 +17,7 @@ class LSTM(Transformer):
     def recurrent_layers(self, inputs):
         x = inputs
         for i, dim in enumerate(self.lstm_units):
-            x = tf.keras.layers.LSTM(
-                units=dim,
-                return_sequences=True
-            )(x)
+            x = tf.keras.layers.LSTM(units=dim, return_sequences=True)(x)
         x = tf.keras.layers.Dense(self.data.dimensions)(x)
         return x
 

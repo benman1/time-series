@@ -65,6 +65,7 @@ class NBeatsNet(NNModel):
     We could be moving a window generator here:
     self.ts_obj = WindowGenerator(input_width=10, label_width=10, shift=8, train_df=df)
     """
+
     cast_type: str = _FORECAST
 
     def __init__(
@@ -147,7 +148,7 @@ class NBeatsNet(NNModel):
             model.name: model for model in [n_beats_backcast, n_beats_forecast]
         }
         self.models[_FORECAST].compile(loss="mae", optimizer="adam")
-        # LOGGER.info(self.models[_FORECAST].summary())
+        LOGGER.info(self.models[_FORECAST].summary())
 
     def has_exog(self):
         # exo/exog is short for 'exogenous variable', i.e. any input

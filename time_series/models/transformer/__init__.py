@@ -12,6 +12,9 @@ from time_series.models import NNModel
 from tensorflow.keras import layers
 
 
+LOGGER = logging.getLogger(__file__)
+
+
 class Transformer(NNModel):
     """Transformer model for time-series.
 
@@ -19,10 +22,7 @@ class Transformer(NNModel):
     Data come in as (batch size, sequence length, features).
     """
 
-    def __init__(
-        self, data: TrainingDataSet,
-        regression: bool = True
-    ):
+    def __init__(self, data: TrainingDataSet, regression: bool = True):
         self.data = data
         self.model: Optional[Model] = None
         self.regression = regression
@@ -39,7 +39,12 @@ class Transformer(NNModel):
 
     @staticmethod
     def transformer_encoder(
-        inputs, head_size: int, num_heads: int, ff_dim: int, dropout: float = 0.0, kernel_size: int = 1
+        inputs,
+        head_size: int,
+        num_heads: int,
+        ff_dim: int,
+        dropout: float = 0.0,
+        kernel_size: int = 1,
     ):
         """Encoder: Attention and Normalization and Feed-Forward."""
         # 1. Attention and Normalization:
@@ -83,8 +88,10 @@ class Transformer(NNModel):
             x = layers.Dense(dim, activation="relu")(x)
             x = layers.Dropout(mlp_dropout)(x)
         outputs_d = layers.Dense(
-            self.data.dimensions * self.data.n_steps if self.regression else self.data.n_classes,
-            activation="softmax"
+            self.data.dimensions * self.data.n_steps
+            if self.regression
+            else self.data.n_classes,
+            activation="softmax",
         )(x)
         outputs = tf.reshape(outputs_d, (-1, self.data.horizon, self.data.dimensions))
         return inputs, outputs
@@ -98,7 +105,7 @@ class Transformer(NNModel):
             mlp_units=[256],
             mlp_dropout=0.4,
             dropout=0.25,
-            kernel_size=self.data.n_steps
+            kernel_size=self.data.n_steps,
         )
         self.model = Model(inputs, outputs)
         self.model.compile(
@@ -106,4 +113,4 @@ class Transformer(NNModel):
             optimizer="adam",
             metrics=self.metrics,
         )
-        print(self.model.summary())
+        LOGGER.info(self.model.summary())

@@ -9,7 +9,7 @@ class NNModel(ABC):
     metrics = ["mean_absolute_percentage_error", "mae", "mse"]
     callbacks = [
         tf.keras.callbacks.EarlyStopping(
-            monitor="loss", patience=3, restore_best_weights=True
+            monitor="loss", patience=5, restore_best_weights=True
         )
     ]
 
