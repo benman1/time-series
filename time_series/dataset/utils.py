@@ -18,7 +18,7 @@ def get_energy_demand(scale: bool = True):
     df = result["gefcom"].pivot(index="ts", columns="zone", values="demand")
     if not scale:
         return df
-    return pd.DataFrame(data=StandardScaler().fit_transform(df), columns=df.columns)
+    return pd.DataFrame(data=StandardScaler().fit_transform(df), columns=df.columns, index=df.index)
 
 
 @lru_cache(maxsize=1, typed=False)
