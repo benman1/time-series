@@ -592,6 +592,7 @@ class TCNModel(Transformer):
         self.model = Sequential(
             [tcn_layer, Dense(np.prod(self.data.output_shape)), Reshape(self.data.output_shape)]
         )
+        self.model.build(self.data.input_shape)
         self.model.compile(
             loss="mse" if self.regression else "sparse_categorical_crossentropy",
             optimizer="adam",
