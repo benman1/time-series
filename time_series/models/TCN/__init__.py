@@ -3,9 +3,11 @@
 Based on the implementation by Philippe Remy: https://github.com/philipperemy/keras-tcn
 """
 import inspect
-from typing import List
+import logging
+from typing import List, Optional
 
-from tensorflow.keras import backend as K, Model, Input, optimizers
+import numpy as np
+from tensorflow.keras import backend as K, Model, Sequential, Input, optimizers
 from tensorflow.keras import layers
 from tensorflow.keras.layers import Activation, SpatialDropout1D, Lambda
 from tensorflow.keras.layers import (
@@ -14,7 +16,11 @@ from tensorflow.keras.layers import (
     Dense,
     BatchNormalization,
     LayerNormalization,
+    Reshape
 )
+
+from time_series.dataset.time_series import TrainingDataSet
+from time_series.models.transformer import Transformer
 
 
 LOGGER = logging.getLogger(__file__)
@@ -554,10 +560,6 @@ def tcn_full_summary(model: Model, expand_residual_blocks=True):
         print("WARNING: tcn_full_summary: Compatible with tensorflow 2.5.0 or below.")
 
 
-from tcn import TCN, tcn_full_summary
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.models import Sequential
-
 # if time_steps > tcn_layer.receptive_field, then we should not
 # be able to solve this task.
 batch_size, time_steps, input_dim = None, 20, 1
@@ -583,17 +585,16 @@ class TCNModel(Transformer):
 
     def __init__(self, data: TrainingDataSet):
         super().__init__(data)
-        self.model: Optional[tf.keras.Model] = None
+        self.model: Optional[Model] = None
 
     def build_model(self):
         tcn_layer = TCN(input_shape=self.data.input_shape)
-        model = Sequential(
-            [tcn_layer, Dense(np.prod(self.output_shape)), Reshape(self.output_shape)]
+        self.model = Sequential(
+            [tcn_layer, Dense(np.prod(self.data.output_shape)), Reshape(self.data.output_shape)]
         )
-        model.compile(
+        self.model.compile(
             loss="mse" if self.regression else "sparse_categorical_crossentropy",
             optimizer="adam",
             metrics=self.metrics,
         )
-        self.model = model
         LOGGER.info(self.model.summary())
