@@ -6,7 +6,7 @@ import logging
 import numpy as np
 import pandas as pd
 
-if version.parse(np.__version__) >= version.parse("1.20.0"):
+if version.parse(np.__version__) >= version.parse("1.21.0"):
     from numpy.typing.np_types import ArrayLike
 else:
     from typing import Union
