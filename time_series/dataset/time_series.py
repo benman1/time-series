@@ -1,17 +1,10 @@
 """Time-series data classes."""
-from packaging import version
 from dataclasses import dataclass
 import logging
+from typing import Union
 
 import numpy as np
 import pandas as pd
-
-if version.parse(np.__version__) >= version.parse("1.21.0"):
-    from numpy.typing.np_types import ArrayLike
-else:
-    from typing import Union
-
-    ArrayLike = Union[np.ndarray, pd.Series, pd.DataFrame]
 
 import tensorflow as tf
 from statsmodels.tsa.tsatools import lagmat
@@ -19,6 +12,7 @@ from statsmodels.tsa.tsatools import lagmat
 from time_series.dataset import Dataset
 
 
+ArrayLike = Union[np.ndarray, pd.Series, pd.DataFrame]
 LOGGER = logging.getLogger(__file__)
 
 
